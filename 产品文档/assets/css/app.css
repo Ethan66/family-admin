@@ -1,0 +1,217 @@
+/* ============================================================
+   应用层补充样式（在 styles.css 之后加载）
+   ============================================================ */
+
+/* ---- 关键修复 ----
+   styles.css 中 .modal-overlay 写了 display:grid，作者样式优先级高于浏览器
+   对 [hidden] 属性的默认 display:none，导致遮罩即使带 hidden 仍铺满全屏并吃掉点击。
+   这里强制让 hidden 生效。 ---- */
+[hidden]{display:none !important;}
+
+/* ---- 空状态 ---- */
+.empty{
+  padding:48px 24px;text-align:center;color:var(--text-3);
+}
+.empty-icon{
+  width:56px;height:56px;margin:0 auto var(--s-4);
+  border-radius:var(--r-pill);
+  background:var(--surface-sunken);
+  display:grid;place-items:center;
+}
+.empty-icon svg{width:24px;height:24px;color:var(--text-3);}
+.empty-title{font-size:14px;font-weight:600;color:var(--text-2);}
+.empty-desc{font-size:12px;margin-top:4px;}
+
+/* ---- 提示条 ---- */
+.toast-root{
+  position:fixed;left:50%;bottom:32px;transform:translateX(-50%);
+  z-index:300;display:flex;flex-direction:column;gap:8px;align-items:center;
+  pointer-events:none;
+}
+.toast{
+  display:flex;align-items:center;gap:var(--s-2);
+  height:40px;padding:0 var(--s-5);
+  border-radius:var(--r-pill);
+  background:#15181D;color:#fff;font-size:13px;
+  box-shadow:var(--sh-lg);
+  animation:toast-in .2s ease;
+}
+.toast svg{width:16px;height:16px;color:#5AD48A;}
+.toast.is-error svg{color:#FF8A8D;}
+@keyframes toast-in{
+  from{opacity:0;transform:translateY(10px);}
+  to{opacity:1;transform:none;}
+}
+
+/* ---- 照片卡片中的真实图片 ---- */
+.photo-thumb img{
+  width:100%;height:100%;object-fit:cover;display:block;
+}
+.photo-del{
+  position:absolute;right:8px;top:8px;
+  height:24px;padding:0 8px;border:none;
+  border-radius:var(--r-xs);
+  background:rgba(21,24,29,.62);color:#fff;
+  font:inherit;font-size:11px;cursor:pointer;
+  opacity:0;transition:opacity .16s;
+}
+.photo-card:hover .photo-del{opacity:1;}
+
+/* ---- 影片海报中的图片 ---- */
+.poster img{width:100%;height:100%;object-fit:cover;border-radius:var(--r-sm);}
+
+/* ---- 弹窗里的照片预览网格 ---- */
+.pick-grid{display:grid;gap:8px;grid-template-columns:repeat(4,minmax(0,1fr));}
+.pick-cell{
+  position:relative;aspect-ratio:1/1;border-radius:var(--r-xs);overflow:hidden;
+  border:1px solid var(--border);
+}
+.pick-cell img{width:100%;height:100%;object-fit:cover;display:block;}
+
+/* ---- 笔记列表操作 ---- */
+.note-item .note-del{margin-left:auto;}
+.note-row{display:flex;align-items:center;gap:var(--s-2);}
+.note-row .note-del{
+  border:none;background:transparent;color:var(--text-3);
+  cursor:pointer;font-size:12px;padding:0;
+}
+.note-row .note-del:hover{color:var(--income);}
+
+/* ---- 表格行操作 ---- */
+.row-actions{display:flex;gap:6px;justify-content:flex-end;}
+
+/* ---- 顶栏数据按钮 ---- */
+.data-actions{display:flex;gap:var(--s-2);}
+
+/* ---- 移动端侧栏遮罩 ---- */
+.scrim{
+  position:fixed;inset:0;z-index:55;
+  background:rgba(15,18,25,.4);
+}
+
+/* ===================== 登录页 ===================== */
+.login-screen{
+  position:fixed;inset:0;z-index:500;
+  display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);
+  background:var(--bg);
+}
+.login-aside{
+  background:#3D6BF2;color:#fff;padding:64px;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.login-brand{display:flex;align-items:center;gap:12px;}
+.login-logo{
+  width:44px;height:44px;border-radius:12px;
+  background:rgba(255,255,255,.18);
+  display:grid;place-items:center;font-size:22px;font-weight:600;
+}
+.login-brand strong{font-size:18px;font-weight:600;}
+.login-copy h1{margin:0 0 20px;font-size:36px;font-weight:600;line-height:1.4;letter-spacing:.5px;}
+.login-copy p{margin:0 0 24px;font-size:15px;line-height:1.7;opacity:.85;}
+.login-copy ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;}
+.login-copy li{font-size:14px;opacity:.9;}
+.login-note{margin:0;font-size:12px;opacity:.65;}
+.login-main{display:grid;place-items:center;padding:64px;}
+.login-card{width:min(400px,100%);display:flex;flex-direction:column;gap:28px;}
+.login-head h2{margin:0 0 8px;font-size:28px;font-weight:650;color:var(--text);}
+.login-head p{margin:0;font-size:14px;color:var(--text-3);}
+.login-card .form-item{display:flex;flex-direction:column;gap:8px;}
+.login-card .form-item > label{font-size:12px;color:var(--text-3);}
+.affix-btn{
+  position:absolute;right:10px;border:none;background:transparent;
+  color:var(--primary);font:inherit;font-size:13px;cursor:pointer;
+}
+.login-row{display:flex;align-items:center;justify-content:space-between;}
+.login-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);cursor:pointer;}
+.login-check input{accent-color:var(--primary);width:14px;height:14px;}
+.login-link{font-size:13px;color:var(--primary);text-decoration:none;}
+.login-error{
+  padding:10px 12px;border-radius:8px;
+  background:var(--income-weak);color:var(--income);font-size:13px;
+}
+.login-submit{height:44px;font-size:15px;font-weight:600;}
+.login-submit[disabled]{opacity:.65;cursor:not-allowed;}
+.login-hint{
+  padding:12px;border-radius:8px;
+  background:var(--surface-weak);border:1px solid var(--border);
+  text-align:center;font-size:12px;color:var(--text-3);
+}
+@media (max-width:900px){
+  .login-screen{grid-template-columns:1fr;}
+  .login-aside{display:none;}
+  .login-main{padding:24px;}
+}
+
+/* ===================== 行内文字按钮 ===================== */
+.btn-text{
+  display:inline-flex;align-items:center;
+  height:auto;padding:3px 6px;
+  border:none;background:transparent;border-radius:6px;
+  color:var(--primary);font:inherit;font-size:13px;font-weight:500;
+  cursor:pointer;line-height:1.4;
+  transition:background .16s,color .16s;
+}
+.btn-text:hover{background:var(--primary-weak);}
+.btn-text:active{background:#E2EAFF;}
+.btn-text.is-danger{color:var(--income);}
+.btn-text.is-danger:hover{background:var(--income-weak);}
+.row-actions{gap:2px;}
+
+/* ===================== 紧凑列表（试卷 / 影片） ===================== */
+.table-wrap.is-compact thead th{padding:8px 16px;}
+.table-wrap.is-compact tbody td{padding:9px 16px;}
+.table-wrap.is-compact tbody tr:hover{background:var(--surface-weak);}
+
+.movie-list.is-compact .movie-row{padding:10px 0;gap:12px;}
+.movie-list.is-compact .poster{width:44px;height:60px;font-size:10px;}
+.movie-list.is-compact .movie-title{font-size:13.5px;}
+.movie-list.is-compact .movie-sub{font-size:12px;margin-top:2px;}
+.movie-list.is-compact .progress{width:150px;margin-top:6px;}
+.movie-list.is-compact .movie-time{width:84px;font-size:12px;}
+
+/* ===================== 列表表头条（影片） ===================== */
+.list-head{
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) 84px 56px 56px 100px;
+  gap:12px;align-items:center;
+  padding:8px 16px;
+  background:var(--surface-weak);
+  border:1px solid var(--border);
+  border-bottom:none;
+  border-radius:12px 12px 0 0;
+  font-size:12px;color:var(--text-3);
+}
+.list-head .right{text-align:right;}
+.list-head + .movie-list{
+  border:1px solid var(--border);
+  border-top:1px solid var(--border);
+  border-radius:0 0 12px 12px;
+  padding:0 16px;
+  background:var(--surface);
+}
+@media (max-width:1180px){
+  .list-head{grid-template-columns:44px minmax(0,1fr) 56px 56px 100px;}
+  .list-head span:nth-child(3){display:none;}
+}
+
+/* ===================== 笔记预览 ===================== */
+.md-view{max-height:56vh;overflow:auto;padding:2px 4px 2px 0;}
+
+/* ===================== 支出环形图（饼状图） ===================== */
+/* 覆写全局 svg{width:18px} 规则，否则环形图会被压成 18px 小图标 */
+.pie-wrap{display:flex;gap:24px;align-items:center;flex-wrap:wrap;}
+.pie{position:relative;width:188px;height:188px;flex:0 0 auto;}
+.pie svg{display:block;width:188px;height:188px;fill:none;stroke:none;}
+.pie-center{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;pointer-events:none;
+}
+.pie-center .pc-label{font-size:12px;color:var(--text-3);}
+.pie-center .pc-value{font-size:22px;font-weight:650;color:var(--text);margin-top:2px;}
+.pie-center .pc-sub{font-size:11px;color:var(--text-3);margin-top:2px;}
+.pie-legend{flex:1 1 200px;display:flex;flex-direction:column;gap:10px;min-width:180px;}
+.pie-legend .lg-row{display:flex;align-items:center;gap:10px;font-size:13px;}
+.pie-legend .lg-dot{width:10px;height:10px;border-radius:3px;flex:0 0 auto;}
+.pie-legend .lg-name{color:var(--text-2);}
+.pie-legend .lg-val{margin-left:auto;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;}
+.pie-legend .lg-pct{color:var(--text-3);width:48px;text-align:right;font-variant-numeric:tabular-nums;}

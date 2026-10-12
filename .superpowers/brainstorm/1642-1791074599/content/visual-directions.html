@@ -1,0 +1,34 @@
+<style>
+  .direction-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:24px}.card{overflow:hidden}.card-image{padding:0!important;background:#e9edf2}.mini{height:330px;display:grid;grid-template-columns:58px 1fr;font-family:"Microsoft YaHei",sans-serif;text-align:left}.rail{padding:18px 10px;display:flex;flex-direction:column;align-items:center;gap:18px}.mark{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-weight:800}.dots{display:grid;gap:12px}.dot{width:22px;height:6px;border-radius:99px;opacity:.32}.dot.on{opacity:1}.stage{padding:20px;overflow:hidden}.micro{font-size:8px;letter-spacing:.12em;font-weight:800;opacity:.55}.hello{font-size:19px;font-weight:800;letter-spacing:-.04em;margin:8px 0 18px}.hero-number{font-size:30px;font-weight:800;letter-spacing:-.06em}.sub{font-size:9px;opacity:.62;margin-top:4px}.strip{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:20px}.metric{padding:13px 8px}.metric b{display:block;font-size:16px}.metric span{font-size:8px;opacity:.58}.activity{margin-top:18px}.row{display:grid;grid-template-columns:28px 1fr auto;align-items:center;padding:10px 0;border-top:1px solid currentColor;font-size:9px;border-color:color-mix(in srgb,currentColor 12%,transparent)}.thumb{width:22px;height:22px;border-radius:7px}.tag{font-size:7px;padding:4px 6px;border-radius:99px}.a{background:#f2f5f7;color:#13263f}.a .rail{background:#13263f;color:white}.a .mark{background:#ff7a45;color:#13263f}.a .dot{background:#fff}.a .stage{background:linear-gradient(135deg,#f7fafc,#e9eef3)}.a .balance{border-left:3px solid #ff7a45;padding-left:12px}.a .strip{background:#d8e0e7}.a .metric{background:#f7fafc}.a .thumb{background:#6da0c9}.a .tag{background:#dbe8f2;color:#315d7e}.b{background:#eef2ff;color:#102a67}.b .rail{background:#1542ba;color:white}.b .mark{background:#f6d74b;color:#102a67;border-radius:50%}.b .dot{background:#fff}.b .stage{background-color:#f7f8ff;background-image:linear-gradient(#dfe5f8 1px,transparent 1px),linear-gradient(90deg,#dfe5f8 1px,transparent 1px);background-size:18px 18px}.b .hero-number{color:#1542ba}.b .strip{border:2px solid #1542ba;gap:0}.b .metric{background:#fff;border-right:1px solid #1542ba}.b .thumb{background:#ff6b57;border-radius:2px}.b .tag{background:#f6d74b;color:#102a67;border-radius:2px}.c{background:#242321;color:#f5f0e6}.c .rail{background:#f5f0e6;color:#242321}.c .mark{background:#242321;color:#d8ff49;border-radius:2px}.c .dot{background:#242321}.c .stage{background:#242321}.c .hello{font-family:Georgia,"Songti SC",serif;font-weight:500}.c .balance{padding:16px;background:#d8ff49;color:#242321;transform:rotate(-1deg)}.c .strip{gap:7px}.c .metric{background:#34322f}.c .thumb{background:linear-gradient(135deg,#d99f7e,#6c8399);border-radius:0}.c .tag{background:#d8ff49;color:#242321;border-radius:0}.card-body p{min-height:42px}.case{font-size:12px!important;color:#6d7784!important}.risk{font-size:11px!important;color:#9a5b39!important;margin-top:8px!important}@media(max-width:900px){.direction-grid{grid-template-columns:1fr}.mini{height:280px}}
+</style>
+<h2>Web 首页视觉方向</h2>
+<p class="subtitle">三种方案都保留“家庭整体近况 → 最近动态 → 快捷操作”的信息顺序。点击你最喜欢的一张。</p>
+<div class="cards direction-grid">
+  <div class="card" data-choice="family-rhythm" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mini a">
+        <aside class="rail"><div class="mark">家</div><div class="dots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div></aside>
+        <main class="stage"><div class="micro">2026 / 10 / 04 · 周日</div><div class="hello">晚上好，欢迎回家</div><section class="balance"><div class="micro">本月家庭结余</div><div class="hero-number">¥ 8,420</div><div class="sub">比上月多结余 12%</div></section><div class="strip"><div class="metric"><b>86</b><span>家庭照片</span></div><div class="metric"><b>12</b><span>学习试卷</span></div><div class="metric"><b>24</b><span>本月记录</span></div></div><div class="activity"><div class="micro">最近动态</div><div class="row"><i class="thumb"></i><span>周末采购</span><i class="tag">支出</i></div><div class="row"><i class="thumb"></i><span>数学单元测试</span><i class="tag">92 分</i></div></div></main>
+      </div>
+    </div>
+    <div class="card-body"><h3>A · 家庭节拍 <span style="font-size:11px;color:#ff6d39">推荐</span></h3><p>像一张清晰的家庭状态台：冷静蓝灰承载数据，橙色只提示行动和变化。</p><p class="case">最适合每天快速看近况，层级清楚，也方便后续扩展其他页面。</p><p class="risk">风险：需要控制好留白，数据太少时会显得偏空。</p></div>
+  </div>
+  <div class="card" data-choice="monthly-ledger" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mini b">
+        <aside class="rail"><div class="mark">家</div><div class="dots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div></aside>
+        <main class="stage"><div class="micro">十月家庭账页</div><div class="hello">今天的家庭记录</div><section class="balance"><div class="micro">可用结余</div><div class="hero-number">¥ 8,420</div><div class="sub">收入 18,600 · 支出 10,180</div></section><div class="strip"><div class="metric"><b>24</b><span>收支笔数</span></div><div class="metric"><b>12</b><span>试卷归档</span></div><div class="metric"><b>7</b><span>新增资料</span></div></div><div class="activity"><div class="micro">明细索引</div><div class="row"><i class="thumb"></i><span>本周家庭采购</span><i class="tag">查看</i></div><div class="row"><i class="thumb"></i><span>孩子学习记录</span><i class="tag">整理</i></div></div></main>
+      </div>
+    </div>
+    <div class="card-body"><h3>B · 月度账页</h3><p>把首页做成精确的家庭月报，网格、编号和明确的分区让信息更紧凑。</p><p class="case">扫描效率最高，适合重视收支和记录完整性的家庭管理员。</p><p class="risk">风险：会略偏“工作系统”，家庭生活感较弱。</p></div>
+  </div>
+  <div class="card" data-choice="living-archive" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mini c">
+        <aside class="rail"><div class="mark">家</div><div class="dots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div></aside>
+        <main class="stage"><div class="micro">FAMILY ARCHIVE · 2026</div><div class="hello">家的每一天，都有迹可循</div><section class="balance"><div class="micro">十月结余</div><div class="hero-number">¥ 8,420</div><div class="sub">家庭状态稳定</div></section><div class="strip"><div class="metric"><b>86</b><span>照片</span></div><div class="metric"><b>12</b><span>试卷</span></div><div class="metric"><b>18</b><span>片单</span></div></div><div class="activity"><div class="micro">最新归档</div><div class="row"><i class="thumb"></i><span>秋日公园 · 6 张</span><i class="tag">照片</i></div><div class="row"><i class="thumb"></i><span>数学错题复盘</span><i class="tag">学习</i></div></div></main>
+      </div>
+    </div>
+    <div class="card-body"><h3>C · 生活档案墙</h3><p>更有个性、更像家庭记忆档案；高对比暗色和照片内容带来强烈氛围。</p><p class="case">最有记忆点，适合把照片、影片和成长记录放在首页中心。</p><p class="risk">风险：长时间处理表格时不如浅色方案轻松。</p></div>
+  </div>
+</div>

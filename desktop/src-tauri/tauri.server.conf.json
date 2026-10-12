@@ -1,0 +1,6 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev -- --mode server",
+    "beforeBuildCommand": "npm run build -- --mode server"
+  }
+}

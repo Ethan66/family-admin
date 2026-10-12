@@ -1,0 +1,40 @@
+html:root {
+  font-family: Inter, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  color: #17231d;
+  background: #f4f6f2;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --brand: #236b4e;
+  --brand-deep: #154a37;
+  --warm: #f0a65a;
+  --surface: #ffffff;
+  --line: #e2e9e4;
+  --muted: #6b7870;
+  --el-color-primary: var(--brand);
+  --el-color-primary-rgb: 35, 107, 78;
+  --el-color-primary-dark-2: var(--brand-deep);
+  --el-color-primary-light-3: #659783;
+  --el-color-primary-light-5: #91b5a7;
+  --el-color-primary-light-7: #bdd3ca;
+  --el-color-primary-light-8: #d3e1dc;
+  --el-color-primary-light-9: #e9f0ed;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { min-width: 960px; min-height: 100%; margin: 0; }
+body { min-height: 100vh; }
+button, input, textarea { font: inherit; }
+
+.page-stack { display: grid; gap: 18px; }
+.page-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.page-title { margin: 0; font-size: 25px; letter-spacing: -0.02em; }
+.page-subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.surface { border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 12px 30px rgb(24 60 44 / 5%); }
+.empty-wrap { display: grid; min-height: 280px; place-items: center; }
+.money-income { color: #16825d; }
+.money-expense { color: #c75c4d; }
+
+@media (max-width: 1080px) {
+  html, body, #app { min-width: 760px; }
+  .page-toolbar { align-items: flex-start; flex-direction: column; }
+}
