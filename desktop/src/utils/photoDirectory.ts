@@ -26,6 +26,11 @@ export function isPhotoInsideDirectory(photoPath: string, directoryPath: string)
     || tempPhotoPath.startsWith(`${tempDirectoryPath === '/' ? '' : tempDirectoryPath}/`)
 }
 
+/** 照片墙只匹配直接父目录；目录树仍按后代累计照片数量。 */
+export function isPhotoDirectlyInDirectory(photoPath: string, directoryPath: string): boolean {
+  return normalizePhotoPath(photoDirectoryOf(photoPath)) === normalizePhotoPath(directoryPath)
+}
+
 function photoDirectoryOf(path: string): string {
   const tempSeparatorIndex = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
   return path.slice(0, tempSeparatorIndex)

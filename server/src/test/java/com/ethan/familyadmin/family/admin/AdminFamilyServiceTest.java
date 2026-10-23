@@ -10,6 +10,8 @@ import com.ethan.familyadmin.family.UserEntity;
 import com.ethan.familyadmin.family.UserMapper;
 import com.ethan.familyadmin.family.dto.CreateMemberRequest;
 import com.ethan.familyadmin.security.Role;
+import com.ethan.familyadmin.security.CurrentUser;
+import com.ethan.familyadmin.security.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,13 +61,26 @@ class AdminFamilyServiceTest {
             return 1;
         });
 
-        service.createMember(31L, new CreateMemberRequest("father", "父亲", "secret123"));
+        TenantContext.runAs(new CurrentUser(1L, null, Role.SUPER_ADMIN, 0),
+            () -> service.createMember(31L, new CreateMemberRequest("zc", "zc", "secret123")));
+
+        ArgumentCaptor<UserEntity> userCaptor = ArgumentCaptor.forClass(UserEntity.class);
+        verify(userMapper).insert(userCaptor.capture());
+        UserEntity createdUser = userCaptor.getValue();
+        assertThat(createdUser.getCreatedAt()).isNotNull();
+        assertThat(createdUser.getUpdatedAt()).isEqualTo(createdUser.getCreatedAt());
+        assertThat(createdUser.getCreatedBy()).isEqualTo(1L);
+        assertThat(createdUser.getUpdatedBy()).isEqualTo(1L);
 
         ArgumentCaptor<FamilyMemberEntity> captor = ArgumentCaptor.forClass(FamilyMemberEntity.class);
         verify(familyMemberMapper).insert(captor.capture());
         assertThat(captor.getValue().getFamilyId()).isEqualTo(31L);
         assertThat(captor.getValue().getUserId()).isEqualTo(8L);
         assertThat(captor.getValue().getRole()).isEqualTo(Role.FAMILY_MEMBER.name());
+        assertThat(captor.getValue().getCreatedAt()).isNotNull();
+        assertThat(captor.getValue().getUpdatedAt()).isEqualTo(captor.getValue().getCreatedAt());
+        assertThat(captor.getValue().getCreatedBy()).isEqualTo(1L);
+        assertThat(captor.getValue().getUpdatedBy()).isEqualTo(1L);
         verify(auditService).record("MEMBER_CREATE", "USER", "8", 31L);
     }
 

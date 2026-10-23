@@ -21,6 +21,12 @@ export async function loadResourceIndex(familyId: number): Promise<ResourceIndex
   return invoke<ResourceIndex>('load_resource_index', { familyId })
 }
 
+/** 只列出当前家庭已添加照片根目录下真实存在的配置文件。 */
+export async function listPhotoRootJsonFiles(familyId: number): Promise<string[]> {
+  ensureDesktopRuntime()
+  return invoke<string[]>('list_photo_root_json_files', { familyId })
+}
+
 export async function scanResources(
   familyId: number,
   kind: ResourceKind,
@@ -45,7 +51,19 @@ export async function recyclePhoto(familyId: number, resourceId: string): Promis
   return invoke<ResourceIndex>('recycle_photo', { familyId, resourceId })
 }
 
-/** 整批移动已索引照片到当前家庭照片目录下的子文件夹。 */
+/** 将已扫描的照片子文件夹及内容整体移入系统回收站。 */
+export async function recyclePhotoDirectory(familyId: number, path: string): Promise<ResourceIndex> {
+  ensureDesktopRuntime()
+  return invoke<ResourceIndex>('recycle_photo_directory', { familyId, path })
+}
+
+/** 在已扫描的照片目录下新建子文件夹，不移动任何照片。 */
+export async function createPhotoSubfolder(familyId: number, parentPath: string, folderName: string): Promise<ResourceIndex> {
+  ensureDesktopRuntime()
+  return invoke<ResourceIndex>('create_photo_subfolder', { familyId, parentPath, folderName })
+}
+
+/** 整批移动已索引照片到当前家庭照片目录下的文件夹。 */
 export async function movePhotos(
   familyId: number,
   resourceIds: string[],

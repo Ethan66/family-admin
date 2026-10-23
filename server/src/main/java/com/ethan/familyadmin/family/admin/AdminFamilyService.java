@@ -17,11 +17,13 @@ import com.ethan.familyadmin.family.dto.FamilyResponse;
 import com.ethan.familyadmin.family.dto.MemberResponse;
 import com.ethan.familyadmin.family.dto.UpdateMemberRequest;
 import com.ethan.familyadmin.security.Role;
+import com.ethan.familyadmin.security.TenantContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Service
 public class AdminFamilyService {
@@ -105,6 +107,8 @@ public class AdminFamilyService {
         if (usernameCount > 0) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "登录名已存在");
         }
+        Long operatorId = TenantContext.requiredUser().userId();
+        LocalDateTime now = LocalDateTime.now();
         UserEntity user = new UserEntity();
         user.setUsername(request.username());
         user.setDisplayName(request.displayName());
@@ -112,12 +116,20 @@ public class AdminFamilyService {
         user.setStatus(ACTIVE);
         user.setSuperAdmin(false);
         user.setTokenVersion(0);
+        user.setCreatedBy(operatorId);
+        user.setUpdatedBy(operatorId);
+        user.setCreatedAt(now);
+        user.setUpdatedAt(now);
         userMapper.insert(user);
 
         FamilyMemberEntity membership = new FamilyMemberEntity();
         membership.setFamilyId(familyId);
         membership.setUserId(user.getId());
         membership.setRole(Role.FAMILY_MEMBER.name());
+        membership.setCreatedBy(operatorId);
+        membership.setUpdatedBy(operatorId);
+        membership.setCreatedAt(now);
+        membership.setUpdatedAt(now);
         familyMemberMapper.insert(membership);
         auditService.record("MEMBER_CREATE", "USER", String.valueOf(user.getId()), familyId);
         return toMemberResponse(user, membership);

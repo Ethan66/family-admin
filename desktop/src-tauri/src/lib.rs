@@ -15,9 +15,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::load_resource_index,
+            commands::list_photo_root_json_files,
             commands::scan_resources,
             commands::save_resource_metadata,
             commands::recycle_photo,
+            commands::recycle_photo_directory,
+            commands::create_photo_subfolder,
             commands::move_photos,
             commands::read_text_preview,
             commands::read_binary_preview,

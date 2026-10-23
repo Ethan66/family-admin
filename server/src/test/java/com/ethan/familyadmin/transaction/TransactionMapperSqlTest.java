@@ -39,6 +39,7 @@ class TransactionMapperSqlTest {
         parameters.put("familyId", 31L);
         parameters.put("type", "EXPENSE");
         parameters.put("category", "餐饮");
+        parameters.put("memberName", "妈妈");
         parameters.put("monthStart", LocalDate.of(2026, 10, 1));
         parameters.put("monthEnd", LocalDate.of(2026, 11, 1));
 
@@ -46,7 +47,7 @@ class TransactionMapperSqlTest {
             TransactionMapper.class.getName() + ".selectAggregate").getBoundSql(parameters);
 
         assertThat(boundSql.getSql()).contains("family_id = ?", "deleted = 0", "type = ?",
-            "category = ?", "transaction_date >= ?", "transaction_date < ?");
-        assertThat(boundSql.getParameterMappings()).hasSize(5);
+            "category = ?", "member_name = ?", "transaction_date >= ?", "transaction_date < ?");
+        assertThat(boundSql.getParameterMappings()).hasSize(6);
     }
 }

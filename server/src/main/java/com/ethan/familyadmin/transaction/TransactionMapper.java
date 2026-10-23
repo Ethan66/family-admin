@@ -21,6 +21,7 @@ public interface TransactionMapper extends BaseMapper<TransactionEntity> {
         WHERE family_id = #{familyId} AND deleted = 0
         <if test="type != null">AND type = #{type}</if>
         <if test="category != null and category != ''">AND category = #{category}</if>
+        <if test="memberName != null and memberName != ''">AND member_name = #{memberName}</if>
         <if test="monthStart != null">
             AND transaction_date &gt;= #{monthStart}
             AND transaction_date &lt; #{monthEnd}
@@ -31,6 +32,7 @@ public interface TransactionMapper extends BaseMapper<TransactionEntity> {
         @Param("familyId") Long familyId,
         @Param("type") String type,
         @Param("category") String category,
+        @Param("memberName") String memberName,
         @Param("monthStart") LocalDate monthStart,
         @Param("monthEnd") LocalDate monthEnd
     );

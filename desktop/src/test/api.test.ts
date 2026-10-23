@@ -14,7 +14,11 @@ describe('resolveApiBaseUrl', () => {
     expect(() => resolveApiBaseUrl('server', undefined)).toThrow('VITE_API_BASE_URL')
   })
 
-  it('rejects an insecure server service address', () => {
-    expect(() => resolveApiBaseUrl('server', 'http://family.example.com/api')).toThrow('HTTPS')
+  it('uses the configured HTTP service in server mode', () => {
+    expect(resolveApiBaseUrl('server', 'http://8.153.99.32/api/')).toBe('http://8.153.99.32/api')
+  })
+
+  it('rejects non-HTTP server service addresses', () => {
+    expect(() => resolveApiBaseUrl('server', 'ftp://family.example.com/api')).toThrow('HTTP 或 HTTPS')
   })
 })

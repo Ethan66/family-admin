@@ -36,7 +36,7 @@ fn recycle_file_on_sta(path: &Path) -> Result<(), String> {
     let target: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
     let item: IShellItem =
         unsafe { SHCreateItemFromParsingName(PCWSTR(target.as_ptr()), None::<&IBindCtx>) }
-            .map_err(|error| format!("无法识别照片文件：{error}"))?;
+            .map_err(|error| format!("无法识别文件或文件夹：{error}"))?;
     let operation: IFileOperation =
         unsafe { CoCreateInstance(&FileOperation, None, CLSCTX_INPROC_SERVER) }
             .map_err(|error| format!("无法打开 Windows 回收站：{error}"))?;
@@ -44,17 +44,16 @@ fn recycle_file_on_sta(path: &Path) -> Result<(), String> {
     unsafe { operation.SetOperationFlags(FILEOPERATION_FLAGS(flags)) }
         .map_err(|error| format!("无法设置回收站操作：{error}"))?;
     unsafe { operation.DeleteItem(&item, None::<&IFileOperationProgressSink>) }
-        .map_err(|error| format!("无法提交照片回收操作：{error}"))?;
-    unsafe { operation.PerformOperations() }
-        .map_err(|error| format!("无法将照片移入回收站：{error}"))?;
+        .map_err(|error| format!("无法提交回收站操作：{error}"))?;
+    unsafe { operation.PerformOperations() }.map_err(|error| format!("无法移入回收站：{error}"))?;
     if unsafe { operation.GetAnyOperationsAborted() }
         .map_err(|error| format!("无法确认回收站操作：{error}"))?
         .as_bool()
     {
-        return Err("照片回收操作已取消，原文件未从索引移除".to_owned());
+        return Err("回收站操作已取消，原文件未从索引移除".to_owned());
     }
     if path.exists() {
-        return Err("照片仍在原位置，回收站操作未完成".to_owned());
+        return Err("文件或文件夹仍在原位置，回收站操作未完成".to_owned());
     }
     Ok(())
 }

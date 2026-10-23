@@ -1,8 +1,10 @@
 use std::fs;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
+use exif::{In, Tag, Value};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -36,6 +38,12 @@ pub struct ResourceEntry {
     pub extension: String,
     pub size: u64,
     pub modified_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub captured_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_height: Option<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -146,6 +154,22 @@ pub(crate) fn create_resource_entry(
         .to_owned();
     let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
     let modified_at: DateTime<Utc> = modified.into();
+    let captured_at = if kind == ResourceKind::Photo {
+        read_photo_capture_time(&canonical_path)
+    } else {
+        None
+    };
+    let image_dimensions = if kind == ResourceKind::Photo {
+        imagesize::size(&canonical_path).ok()
+    } else {
+        None
+    };
+    let image_width = image_dimensions
+        .as_ref()
+        .and_then(|dimensions| u32::try_from(dimensions.width).ok());
+    let image_height = image_dimensions
+        .as_ref()
+        .and_then(|dimensions| u32::try_from(dimensions.height).ok());
     let mut hasher = Sha256::new();
     hasher.update(format!(
         "{kind:?}:{}",
@@ -160,7 +184,27 @@ pub(crate) fn create_resource_entry(
         extension,
         size: metadata.len(),
         modified_at: modified_at.to_rfc3339(),
+        captured_at,
+        image_width,
+        image_height,
     })
+}
+
+/// EXIF 时间通常没有时区；保留相机记录的本地年月日时分秒供照片墙排序。
+fn read_photo_capture_time(path: &Path) -> Option<String> {
+    let file = fs::File::open(path).ok()?;
+    let exif = exif::Reader::new()
+        .read_from_container(&mut BufReader::new(file))
+        .ok()?;
+    let field = exif.get_field(Tag::DateTimeOriginal, In::PRIMARY)?;
+    let Value::Ascii(values) = &field.value else {
+        return None;
+    };
+    let value = values.first()?;
+    let timestamp = std::str::from_utf8(value).ok()?.trim_end_matches('\0');
+    NaiveDateTime::parse_from_str(timestamp, "%Y:%m:%d %H:%M:%S")
+        .ok()
+        .map(|datetime| datetime.format("%Y-%m-%dT%H:%M:%S").to_string())
 }
 
 fn warning(path: &Path, reason: &str) -> ScanWarning {

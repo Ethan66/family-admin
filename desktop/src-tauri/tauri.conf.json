@@ -18,12 +18,14 @@
         "minWidth": 960,
         "minHeight": 680,
         "resizable": true,
+        "maximized": true,
+        "dragDropEnabled": false,
         "fullscreen": false,
         "center": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: asset: http://asset.localhost; frame-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:* https://*; font-src 'self' data:"
+      "csp": "default-src 'self'; img-src 'self' data: asset: http://asset.localhost; frame-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' http://* https://*; font-src 'self' data:"
     }
   },
   "bundle": {

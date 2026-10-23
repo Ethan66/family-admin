@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPhotoDirectoryTree, isPhotoInsideDirectory } from '@/utils/photoDirectory'
+import { buildPhotoDirectoryTree, isPhotoDirectlyInDirectory, isPhotoInsideDirectory } from '@/utils/photoDirectory'
 import type { ResourceEntry, ResourceIndex } from '@/types/resource'
 
 function photo(id: string, path: string): ResourceEntry {
@@ -44,6 +44,12 @@ describe('photo directory tree', () => {
   it('compares complete path segments rather than matching a similarly named folder', () => {
     expect(isPhotoInsideDirectory('C:\\photos\\trip\\a.jpg', 'C:\\photos\\trip')).toBe(true)
     expect(isPhotoInsideDirectory('C:\\photos\\trip2\\a.jpg', 'C:\\photos\\trip')).toBe(false)
+  })
+
+  it('matches only photos directly in the selected folder across Windows path forms', () => {
+    expect(isPhotoDirectlyInDirectory('\\\\?\\C:\\photos\\trip\\a.jpg', 'C:/photos/trip')).toBe(true)
+    expect(isPhotoDirectlyInDirectory('C:\\photos\\trip\\child\\b.jpg', 'C:/photos/trip')).toBe(false)
+    expect(isPhotoDirectlyInDirectory('C:\\photos\\trip2\\c.jpg', 'C:/photos/trip')).toBe(false)
   })
 
   it('reconstructs non-empty ancestors from an older index before the first rescan', () => {

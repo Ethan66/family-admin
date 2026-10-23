@@ -14,8 +14,9 @@ export default defineConfig(({ mode }) => {
     if (!tempEnv.VITE_API_BASE_URL) {
       throw new Error('server 模式必须配置 VITE_API_BASE_URL')
     }
-    if (new URL(tempEnv.VITE_API_BASE_URL).protocol !== 'https:') {
-      throw new Error('server 模式的服务地址必须使用 HTTPS')
+    const tempProtocol = new URL(tempEnv.VITE_API_BASE_URL).protocol
+    if (tempProtocol !== 'http:' && tempProtocol !== 'https:') {
+      throw new Error('server 模式的服务地址必须使用 HTTP 或 HTTPS')
     }
   }
 

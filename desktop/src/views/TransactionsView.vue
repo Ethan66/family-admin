@@ -4,7 +4,7 @@ import { Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { transactionsApi } from '@/api/modules'
 import { useAuthStore } from '@/stores/auth'
-import type { TransactionPayload, TransactionRecord, TransactionSummary } from '@/types/api'
+import type { MemberOption, TransactionPayload, TransactionRecord, TransactionSummary } from '@/types/api'
 import { canManageTransaction } from '@/utils/business'
 import { resolveActiveFamilyId } from '@/utils/resource'
 
@@ -15,9 +15,11 @@ const total = ref(0)
 const isLoading = ref(false)
 const isDialogVisible = ref(false)
 const isSubmitting = ref(false)
+const membersData = ref<MemberOption[]>([])
+const isMembersLoading = ref(false)
 const editingId = ref<number | null>(null)
 const transactionFormRef = ref<FormInstance>()
-const filters = reactive({ month: new Date().toLocaleDateString('sv-SE').slice(0, 7), type: '', category: '', page: 1, pageSize: 20 })
+const filters = reactive({ month: new Date().toLocaleDateString('sv-SE').slice(0, 7), type: '', memberName: '', category: '', page: 1, pageSize: 20 })
 const transactionForm = reactive<TransactionPayload>({ type: 'EXPENSE', amount: 0, transactionDate: '', category: '', memberName: '', note: null })
 const options = {
   filterTypes: [{ label: '全部', value: '' }, { label: '收入', value: 'INCOME' }, { label: '支出', value: 'EXPENSE' }],
@@ -29,10 +31,27 @@ const transactionRules: FormRules<TransactionPayload> = {
   amount: [{ required: true, type: 'number', min: 0.01, message: '金额必须大于 0', trigger: 'blur' }],
   transactionDate: [{ required: true, message: '请选择日期', trigger: 'change' }],
   category: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  memberName: [{ required: true, message: '请输入家庭成员', trigger: 'blur' }],
+  memberName: [{ required: true, message: '请选择家庭成员', trigger: 'change' }],
 }
 const activeFamilyId = computed(() => authStore.user ? resolveActiveFamilyId(authStore.user, authStore.selectedFamilyId) : null)
 const canCreate = computed(() => activeFamilyId.value !== null)
+const isAdmin = computed(() => authStore.user?.role === 'SUPER_ADMIN')
+const filterMemberOptions = computed(() => {
+  if (!authStore.user) return []
+  if (!isAdmin.value) return [{ label: authStore.user.displayName, value: authStore.user.displayName }]
+  const tempNames = new Set([authStore.user.displayName, ...membersData.value.map((member) => member.displayName)])
+  return [{ label: '全部成员', value: '' }, ...[...tempNames].map((name) => ({ label: name, value: name }))]
+})
+const memberOptions = computed(() => {
+  const tempNames = new Set<string>()
+  if (authStore.user) tempNames.add(authStore.user.displayName)
+  for (const tempMember of membersData.value) tempNames.add(tempMember.displayName)
+  const tempOptions = [...tempNames].map((name) => ({ label: name, value: name, disabled: false }))
+  if (editingId.value !== null && transactionForm.memberName && !tempNames.has(transactionForm.memberName)) {
+    tempOptions.push({ label: transactionForm.memberName, value: transactionForm.memberName, disabled: true })
+  }
+  return tempOptions
+})
 const daysInMonth = computed(() => {
   const tempMonth = filters.month || new Date().toLocaleDateString('sv-SE').slice(0, 7)
   const [tempYear, tempMonthNumber] = tempMonth.split('-').map(Number)
@@ -48,6 +67,21 @@ const categoryTotals = computed(() => {
   return [...tempTotals].sort((a, b) => b[1] - a[1]).map(([name, value], index) => ({ name, value, percentage: tempTotal ? value / tempTotal * 100 : 0, color: ['#236b4e', '#f0a02c', '#7a5af8', '#12a5a5'][index % 4] }))
 })
 let loadSequence = 0
+let membersLoadSequence = 0
+
+/** 弹窗按当前家庭刷新成员，过期响应不能覆盖切换家庭后的选项。 */
+async function loadMembers(): Promise<void> {
+  const tempSequence = ++membersLoadSequence
+  membersData.value = []
+  if (activeFamilyId.value === null) return
+  isMembersLoading.value = true
+  try {
+    const res = await transactionsApi.members()
+    if (tempSequence === membersLoadSequence) membersData.value = res
+  } finally {
+    if (tempSequence === membersLoadSequence) isMembersLoading.value = false
+  }
+}
 
 function canManage(record: TransactionRecord): boolean {
   return authStore.user ? canManageTransaction(authStore.user.role, authStore.user.id, record.createdBy) : false
@@ -72,7 +106,7 @@ async function loadTransactions(): Promise<void> {
   }
   isLoading.value = true
   try {
-    const tempParams = { month: filters.month || undefined, type: filters.type || undefined, category: filters.category || undefined }
+    const tempParams = { month: filters.month || undefined, type: filters.type || undefined, memberName: filters.memberName || undefined, category: filters.category || undefined }
     const [res, summaryRes] = await Promise.all([
       transactionsApi.list({ ...tempParams, page: filters.page, pageSize: filters.pageSize }),
       transactionsApi.summary(tempParams),
@@ -92,15 +126,23 @@ function resetTransactionForm(): void {
   editingId.value = null
 }
 
+/** 筛选条件变化后从第一页查询，避免停留在不存在的后续页。 */
+async function handleSearch(): Promise<void> {
+  filters.page = 1
+  await loadTransactions()
+}
+
 function handleCreate(): void {
   resetTransactionForm()
   isDialogVisible.value = true
+  void loadMembers()
 }
 
 function handleEdit(record: TransactionRecord): void {
   Object.assign(transactionForm, { type: record.type, amount: Number(record.amount), transactionDate: record.transactionDate, category: record.category, memberName: record.memberName, note: record.note })
   editingId.value = record.id
   isDialogVisible.value = true
+  void loadMembers()
 }
 
 async function handleSubmit(): Promise<void> {
@@ -125,7 +167,16 @@ async function handleRemove(record: TransactionRecord): Promise<void> {
   await loadTransactions()
 }
 
-watch(activeFamilyId, loadTransactions, { immediate: true })
+watch([activeFamilyId, () => authStore.user?.id, () => authStore.user?.displayName, isAdmin], () => {
+  ++membersLoadSequence
+  membersData.value = []
+  isMembersLoading.value = false
+  isDialogVisible.value = false
+  filters.memberName = !isAdmin.value && authStore.user ? authStore.user.displayName : ''
+  filters.page = 1
+  void loadTransactions()
+  if (isAdmin.value) void loadMembers()
+}, { immediate: true })
 </script>
 
 <template>
@@ -134,8 +185,9 @@ watch(activeFamilyId, loadTransactions, { immediate: true })
       <div class="toolbar">
         <div class="field"><label>月份</label><el-date-picker v-model="filters.month" type="month" value-format="YYYY-MM" placeholder="全部月份" clearable /></div>
         <div class="field"><label>类型</label><el-select v-model="filters.type"><el-option v-for="option in options.filterTypes" :key="option.value" :label="option.label" :value="option.value" /></el-select></div>
+        <div class="field"><label>成员</label><el-select v-model="filters.memberName" data-testid="transaction-member-filter" placeholder="全部成员" :clearable="isAdmin"><el-option v-for="option in filterMemberOptions" :key="option.value" :label="option.label" :value="option.value" /></el-select></div>
         <div class="field"><label>分类</label><el-select v-model="filters.category" placeholder="全部分类" clearable><el-option v-for="category in options.categories" :key="category" :label="category" :value="category" /></el-select></div>
-        <el-button class="toolbar-end" :icon="Search" @click="loadTransactions">查询</el-button>
+        <el-button class="toolbar-end" :icon="Search" @click="handleSearch">查询</el-button>
         <el-button v-if="canCreate" data-testid="create-transaction" type="primary" :icon="Plus" @click="handleCreate">新增记录</el-button>
       </div>
       <div class="stat-grid">
@@ -158,7 +210,12 @@ watch(activeFamilyId, loadTransactions, { immediate: true })
       <el-form ref="transactionFormRef" :model="transactionForm" :rules="transactionRules" label-position="top">
         <div class="form-grid"><el-form-item label="类型" prop="type"><el-radio-group v-model="transactionForm.type"><el-radio-button v-for="option in options.types" :key="option.value" :value="option.value">{{ option.label }}</el-radio-button></el-radio-group></el-form-item><el-form-item label="金额" prop="amount"><el-input-number v-model="transactionForm.amount" :min="0.01" :precision="2" :step="10" controls-position="right" /></el-form-item></div>
         <div class="form-grid"><el-form-item label="日期" prop="transactionDate"><el-date-picker v-model="transactionForm.transactionDate" value-format="YYYY-MM-DD" type="date" placeholder="选择日期" /></el-form-item><el-form-item label="分类" prop="category"><el-select v-model="transactionForm.category" allow-create filterable><el-option v-for="category in options.categories" :key="category" :label="category" :value="category" /></el-select></el-form-item></div>
-        <el-form-item label="家庭成员" prop="memberName"><el-input v-model="transactionForm.memberName" maxlength="100" /></el-form-item><el-form-item label="备注" prop="note"><el-input v-model="transactionForm.note" type="textarea" :rows="3" maxlength="500" show-word-limit /></el-form-item>
+        <el-form-item label="家庭成员" prop="memberName">
+          <el-select v-model="transactionForm.memberName" data-testid="transaction-member" placeholder="请选择家庭成员" filterable style="width: 100%">
+            <el-option v-for="option in memberOptions" :key="option.value" :label="option.label" :value="option.value" :disabled="option.disabled" />
+          </el-select>
+          <span v-if="isMembersLoading" role="status" class="member-loading-hint">成员列表加载中…</span>
+        </el-form-item><el-form-item label="备注" prop="note"><el-input v-model="transactionForm.note" type="textarea" :rows="3" maxlength="500" show-word-limit /></el-form-item>
       </el-form>
       <template #footer><el-button @click="isDialogVisible = false">取消</el-button><el-button type="primary" :loading="isSubmitting" @click="handleSubmit">保存</el-button></template>
     </el-dialog>
@@ -166,6 +223,7 @@ watch(activeFamilyId, loadTransactions, { immediate: true })
 </template>
 
 <style scoped>
+.member-loading-hint { color:var(--el-text-color-secondary); font-size:12px; }
 .pagination { justify-content:flex-end; margin-top:18px; }.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }.form-grid :deep(.el-input-number), .form-grid :deep(.el-date-editor), .form-grid :deep(.el-select) { width:100%; }
 .income-dot { background:#e0484b !important; }.expense-dot { background:#17a34a !important; }
 </style>

@@ -5,6 +5,7 @@ import type {
   DashboardOverview,
   Family,
   LoginResponse,
+  MemberOption,
   PageResult,
   TransactionPayload,
   TransactionRecord,
@@ -22,6 +23,7 @@ export const dashboardApi = {
 }
 
 export const transactionsApi = {
+  members: () => apiGet<MemberOption[]>('/family/members'),
   list: (params: Record<string, string | number | undefined>) => apiGet<PageResult<TransactionRecord>>('/transactions', { params }),
   summary: (params: Record<string, string | number | undefined>) => apiGet<TransactionSummary>('/transactions/summary', { params }),
   create: (body: TransactionPayload) => apiPost<TransactionRecord>('/transactions', body),

@@ -69,6 +69,7 @@ public class TransactionService {
             TenantContext.requiredFamilyId(),
             query.type() == null ? null : query.type().name(),
             query.category() == null || query.category().isBlank() ? null : query.category(),
+            query.memberName() == null || query.memberName().isBlank() ? null : query.memberName(),
             monthStart,
             monthEnd
         );
@@ -103,6 +104,7 @@ public class TransactionService {
             .eq(TransactionEntity::getDeleted, 0)
             .eq(query.type() != null, TransactionEntity::getType, query.type() == null ? null : query.type().name())
             .eq(query.category() != null && !query.category().isBlank(), TransactionEntity::getCategory, query.category())
+            .eq(query.memberName() != null && !query.memberName().isBlank(), TransactionEntity::getMemberName, query.memberName())
             .orderByDesc(TransactionEntity::getTransactionDate)
             .orderByDesc(TransactionEntity::getId);
         if (query.month() != null && !query.month().isBlank()) {

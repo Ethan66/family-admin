@@ -16,7 +16,7 @@ let observer: IntersectionObserver | null = null
 let hasBeenVisible = false
 let loadVersion = 0
 
-watch(() => [props.familyId, props.resource.path, props.resource.size, props.resource.modifiedAt], () => {
+watch([() => props.familyId, () => props.resource.path, () => props.resource.size, () => props.resource.modifiedAt], () => {
   loadVersion += 1
   thumbnailData.value = ''
   if (hasBeenVisible) void handleVisible()
@@ -71,5 +71,5 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .photo-thumb { display:grid; width:100%; aspect-ratio:4 / 3; overflow:hidden; place-items:center; background:#edf3ee; color:#7f9f89; font-size:30px; }
-.photo-thumb img { width:100%; height:100%; object-fit:cover; }
+.photo-thumb img { width:100%; height:100%; object-fit:contain; }
 </style>

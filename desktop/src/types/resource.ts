@@ -45,6 +45,9 @@ export interface ResourceEntry {
   extension: string
   size: number
   modifiedAt: string
+  capturedAt?: string
+  imageWidth?: number
+  imageHeight?: number
 }
 
 export interface ScanWarning {

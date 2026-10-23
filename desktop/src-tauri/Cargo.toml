@@ -16,7 +16,9 @@ tauri-build = { version = "2", features = [] }
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
+kamadak-exif = "0.6.1"
 hex = "0.4"
+imagesize = "0.15"
 opener = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

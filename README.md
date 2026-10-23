@@ -38,7 +38,7 @@ npm run tauri:dev:local
 登录页只填写账号和密码，Java 服务地址由启动模式决定：
 
 - `local` 模式固定访问本机 `http://localhost:8080/api`。
-- `server` 模式读取 `VITE_API_BASE_URL`，并要求地址使用 HTTPS。
+- `server` 模式读取 `VITE_API_BASE_URL`，支持 HTTP 和 HTTPS；公网使用建议选择 HTTPS。
 
 连接服务器进行开发时，先复制并修改服务器配置：
 

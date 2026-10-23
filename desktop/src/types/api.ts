@@ -65,6 +65,11 @@ export interface TransactionPayload {
   note: string | null
 }
 
+export interface MemberOption {
+  userId: number
+  displayName: string
+}
+
 export interface Family {
   id: number
   name: string
