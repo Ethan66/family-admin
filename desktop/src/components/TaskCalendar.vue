@@ -5,6 +5,7 @@ import type { TaskOccurrence } from '@/types/dailyTask'
 import { buildCalendarDays } from '@/utils/dailyTasks'
 import { getDailyTaskMemberStyle } from '@/utils/dailyTaskColors'
 
+const MAX_VISIBLE_TASKS = 3
 const props = defineProps<{ month: string; selectedDate: string; today: string; tasks: TaskOccurrence[] }>()
 const emit = defineEmits<{ select: [date: string]; create: [date: string]; move: [offset: number]; today: [] }>()
 const days = computed(() => buildCalendarDays(props.month))
@@ -14,6 +15,10 @@ const tasksByDay = computed(() => {
   for (const tempTask of props.tasks) {
     if (!tempMap.has(tempTask.taskDate)) tempMap.set(tempTask.taskDate, [])
     tempMap.get(tempTask.taskDate)!.push(tempTask)
+  }
+  // 仅排序新建的每日预览数组，不改变父页面列表和详情的任务顺序。
+  for (const tempTasks of tempMap.values()) {
+    tempTasks.sort((tempLeft, tempRight) => Number(tempLeft.completed) - Number(tempRight.completed))
   }
   return tempMap
 })
@@ -40,11 +45,11 @@ function getDayTasks(date: string): TaskOccurrence[] {
         @click="emit('select', date)" @keydown.enter="emit('select', date)" @keydown.space.prevent="emit('select', date)" @dblclick="emit('create', date)">
         <div class="day-heading"><span :class="{ 'today-number': date === today }">{{ Number(date.slice(8)) }}</span><small v-if="date === today">今天</small></div>
         <div class="day-tasks">
-          <div v-for="task in getDayTasks(date).slice(0, 2)" :key="task.id" class="task-preview" :class="{ completed: task.completed }" :style="getDailyTaskMemberStyle(task.memberId)" :title="`${task.memberName} · ${task.title} · ${task.completed ? '已完成' : '待完成'}`">
+          <div v-for="task in getDayTasks(date).slice(0, MAX_VISIBLE_TASKS)" :key="task.id" class="task-preview" :class="{ completed: task.completed }" :style="getDailyTaskMemberStyle(task.memberId)" :title="`${task.memberName} · ${task.title} · ${task.completed ? '已完成' : '待完成'}`">
             <span class="preview-check" aria-hidden="true">{{ task.completed ? '✓' : '' }}</span>
             <span class="preview-member">{{ task.memberName }}</span><span class="preview-separator" aria-hidden="true">·</span><span class="preview-title">{{ task.title }}</span>
           </div>
-          <span v-if="getDayTasks(date).length > 2" class="more-tasks">+ {{ getDayTasks(date).length - 2 }} 项</span>
+          <span v-if="getDayTasks(date).length > MAX_VISIBLE_TASKS" class="more-tasks">+ {{ getDayTasks(date).length - MAX_VISIBLE_TASKS }} 项</span>
         </div>
       </div>
     </div>
