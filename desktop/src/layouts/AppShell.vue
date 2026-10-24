@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Collection,
+  Calendar,
   DataAnalysis,
   Document,
   Film,
@@ -90,6 +91,7 @@ onMounted(loadFamilies)
       <nav class="nav-list">
         <router-link to="/dashboard" title="家庭概览" aria-label="家庭概览" data-label="家庭概览"><el-icon><grid /></el-icon><span>家庭概览</span></router-link>
         <router-link to="/transactions" title="收入支出" aria-label="收入支出" data-label="收入支出"><el-icon><data-analysis /></el-icon><span>收入支出</span></router-link>
+        <router-link to="/daily-tasks" title="每日任务" aria-label="每日任务" data-label="每日任务"><el-icon><calendar /></el-icon><span>每日任务</span></router-link>
         <router-link to="/exams" title="试卷管理" aria-label="试卷管理" data-label="试卷管理"><el-icon><collection /></el-icon><span>试卷管理</span></router-link>
         <router-link to="/photos" title="照片管理" aria-label="照片管理" data-label="照片管理"><el-icon><picture-filled /></el-icon><span>照片管理</span></router-link>
         <router-link to="/movies" title="影片管理" aria-label="影片管理" data-label="影片管理"><el-icon><film /></el-icon><span>影片管理</span></router-link>

@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    DailyTaskForm: typeof import('./src/components/DailyTaskForm.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElDatePicker: typeof import('element-plus/es')['ElDatePicker']
@@ -32,15 +33,18 @@ declare module 'vue' {
     ElRate: typeof import('element-plus/es')['ElRate']
     ElSelect: typeof import('element-plus/es')['ElSelect']
     ElSlider: typeof import('element-plus/es')['ElSlider']
+    ElSwitch: typeof import('element-plus/es')['ElSwitch']
     ElTable: typeof import('element-plus/es')['ElTable']
     ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
     ElTag: typeof import('element-plus/es')['ElTag']
+    ElTimePicker: typeof import('element-plus/es')['ElTimePicker']
     LocalPhotoThumbnail: typeof import('./src/components/LocalPhotoThumbnail.vue')['default']
     PhotoDirectoryTree: typeof import('./src/components/PhotoDirectoryTree.vue')['default']
     PhotoMoveDropdown: typeof import('./src/components/PhotoMoveDropdown.vue')['default']
     ResourceLibraryView: typeof import('./src/components/ResourceLibraryView.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TaskCalendar: typeof import('./src/components/TaskCalendar.vue')['default']
   }
   export interface GlobalDirectives {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

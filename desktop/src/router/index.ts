@@ -16,6 +16,7 @@ export const routes: RouteRecordRaw[] = [
     children: [
       { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue'), meta: { title: '家庭概览' } },
       { path: 'transactions', name: 'transactions', component: () => import('@/views/TransactionsView.vue'), meta: { title: '收入支出' } },
+      { path: 'daily-tasks', name: 'daily-tasks', component: () => import('@/views/DailyTasksView.vue'), meta: { title: '每日任务' } },
       { path: 'photos', name: 'photos', component: () => import('@/views/PhotosView.vue'), meta: { title: '照片管理' } },
       { path: 'movies', name: 'movies', component: () => import('@/views/MoviesView.vue'), meta: { title: '影片管理' } },
       { path: 'notes', name: 'notes', component: () => import('@/views/NotesView.vue'), meta: { title: '学习笔记' } },
