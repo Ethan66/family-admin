@@ -1,0 +1,185 @@
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import ElementPlus from 'element-plus'
+import CoursesView from '@/views/CoursesView.vue'
+import { useAuthStore } from '@/stores/auth'
+import { coursesApi } from '@/api/courses'
+import { formatTaskDate } from '@/utils/dailyTasks'
+
+vi.mock('@/api/courses', () => ({ coursesApi: { apiList: vi.fn(), apiHistory: vi.fn(), apiBalances: vi.fn(), apiSaveBalance: vi.fn(), apiCreate: vi.fn(), apiUpdate: vi.fn(), apiRemove: vi.fn(), apiRecord: vi.fn() } }))
+vi.mock('@/api/modules', () => ({ transactionsApi: { members: vi.fn().mockResolvedValue([{ userId: 7, displayName: '小宇' }]) } }))
+
+describe('course schedule page', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    setActivePinia(createPinia())
+    useAuthStore().user = { id: 7, familyId: 31, displayName: '小宇', role: 'FAMILY_MEMBER' } as never
+    vi.mocked(coursesApi.apiList).mockResolvedValue([])
+    vi.mocked(coursesApi.apiHistory).mockResolvedValue({ records: [], total: 0 })
+    vi.mocked(coursesApi.apiBalances).mockResolvedValue([])
+  })
+  it('shows records only in the attendance tab and keeps the weekly view focused on courses', async () => {
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(tempWrapper.findAll('.period-label').map((item) => item.text())).toEqual(['上午', '下午'])
+    expect(tempWrapper.findAll('.day-heading')).toHaveLength(7)
+    expect(tempWrapper.findAll('.day-heading').map((item) => item.text())).toEqual(['周一', '周二', '周三', '周四', '周五', '周六', '周日'])
+    expect(tempWrapper.find('.week-navigation').exists()).toBe(false)
+    expect(tempWrapper.find('.records-panel').exists()).toBe(false)
+    await tempWrapper.find('#tab-records').trigger('click')
+    await flushPromises()
+    expect(tempWrapper.find('.records-panel').exists()).toBe(true)
+    expect(tempWrapper.text()).toContain('暂无上课记录')
+    expect(tempWrapper.find('.record-filters').text()).toContain('课程')
+    expect(tempWrapper.find('.record-filters').text()).toContain('状态')
+    expect(tempWrapper.find('.record-filters').text()).toContain('月份')
+    expect(tempWrapper.find('.records-table').text()).toContain('剩余课时')
+    tempWrapper.unmount()
+  })
+  it('clears courses and closes editors when switching families', async () => {
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const tempAuth = useAuthStore()
+    tempAuth.user = { id: 1, familyId: null, displayName: '管理员', role: 'SUPER_ADMIN' } as never
+    tempAuth.selectFamily(null)
+    await flushPromises()
+    expect(tempWrapper.text()).toContain('请先选择家庭')
+    expect(tempWrapper.findAll('.course-card')).toHaveLength(0)
+    tempWrapper.unmount()
+  })
+  it('passes course status and month filters to the paginated history request', async () => {
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await tempWrapper.find('#tab-records').trigger('click')
+    await flushPromises()
+    const tempSelects = tempWrapper.find('.record-filters').findAllComponents({ name: 'ElSelect' })
+    expect(tempSelects).toHaveLength(2)
+    const tempCourseSelect = tempSelects[0]!
+    const tempStatusSelect = tempSelects[1]!
+    tempCourseSelect.vm.$emit('update:modelValue', '英语')
+    tempStatusSelect.vm.$emit('update:modelValue', 'ATTENDED')
+    tempWrapper.findComponent({ name: 'ElDatePicker' }).vm.$emit('update:modelValue', '2026-10')
+    await flushPromises()
+    expect(coursesApi.apiHistory).toHaveBeenLastCalledWith({ page: 1, memberId: undefined, title: '英语', status: 'ATTENDED', month: '2026-10' })
+    tempWrapper.unmount()
+  })
+  it('shows remaining and total lessons together in each history row', async () => {
+    vi.mocked(coursesApi.apiHistory).mockResolvedValue({ total: 1, records: [{ id: 1, courseId: 1, memberId: 7, memberName: '小宇', title: '英语', courseDate: '2026-10-20', startTime: '16:30:00', endTime: '18:00:00', status: 'ATTENDED', note: '', remainingLessons: 10, totalLessons: 40 }] })
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await tempWrapper.find('#tab-records').trigger('click')
+    await flushPromises()
+    expect(tempWrapper.find('.lesson-ratio').text()).toBe('10/40')
+    tempWrapper.unmount()
+  })
+  it('creates a real course payload with the selected family member and time range', async () => {
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await tempWrapper.findAll('button').find((item) => item.text().includes('添加课程'))!.trigger('click')
+    await flushPromises()
+    await tempWrapper.find('input[placeholder="例如：英语、钢琴"]').setValue('英语')
+    expect(tempWrapper.text()).toContain('上课星期')
+    expect(tempWrapper.text()).not.toContain('首次上课日期')
+    expect(tempWrapper.text()).not.toContain('重复安排')
+    const tempSaveButton = tempWrapper.findAll('button').find((item) => item.text() === '保存')!
+    await Promise.all([tempSaveButton.trigger('click'), tempSaveButton.trigger('click')])
+    await flushPromises()
+    expect(coursesApi.apiCreate).toHaveBeenCalledWith({ title: '英语', memberId: 7, dayOfWeek: 1, startTime: '09:00', endTime: '10:00', color: 'blue' })
+    expect(coursesApi.apiCreate).toHaveBeenCalledTimes(1)
+    tempWrapper.unmount()
+  })
+  it('shows exact time on borderless cards and saves attendance notes', async () => {
+    const tempDate = formatTaskDate(new Date())
+    vi.mocked(coursesApi.apiList).mockResolvedValue([{ id: 3, createdBy: 7, memberId: 7, memberName: '小宇', title: '英语', date: tempDate, dayOfWeek: (new Date().getDay() + 6) % 7 + 1, startTime: '15:00:00', endTime: '16:30:00', color: 'blue', status: 'PENDING', note: '' }])
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(tempWrapper.find('.course-time').text()).toBe('15:00–16:30')
+    await tempWrapper.find('.record-button').trigger('click')
+    await flushPromises()
+    await tempWrapper.find('textarea').setValue('完成自然拼读')
+    await tempWrapper.findAll('button').find((item) => item.text() === '保存记录')!.trigger('click')
+    await flushPromises()
+    expect(coursesApi.apiRecord).toHaveBeenCalledWith(3, { date: tempDate, status: 'ATTENDED', note: '完成自然拼读' })
+    tempWrapper.unmount()
+  })
+  it('edits an existing recurring course and refreshes the card after saving', async () => {
+    const tempDate = formatTaskDate(new Date())
+    const tempCourse = { id: 3, createdBy: 7, memberId: 7, memberName: '小宇', title: '英语', date: tempDate, dayOfWeek: 1, startTime: '15:00:00', endTime: '16:30:00', color: 'blue' as const, status: 'PENDING' as const, note: '' }
+    vi.mocked(coursesApi.apiList).mockResolvedValueOnce([tempCourse]).mockResolvedValue([{ ...tempCourse, title: '英语口语' }])
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await tempWrapper.find('.course-edit-button').trigger('click')
+    await flushPromises()
+    const tempTitleInput = tempWrapper.find('input[placeholder="例如：英语、钢琴"]')
+    expect((tempTitleInput.element as HTMLInputElement).value).toBe('英语')
+    await tempTitleInput.setValue('英语口语')
+    await tempWrapper.findAll('button').find((item) => item.text() === '保存')!.trigger('click')
+    await flushPromises()
+    expect(coursesApi.apiUpdate).toHaveBeenCalledWith(3, { title: '英语口语', memberId: 7, dayOfWeek: 1, startTime: '15:00', endTime: '16:30', color: 'blue' })
+    expect(coursesApi.apiCreate).not.toHaveBeenCalled()
+    expect(tempWrapper.find('.course-name').text()).toBe('英语口语')
+    tempWrapper.unmount()
+  })
+  it('does not expose editing controls for another family members course', async () => {
+    const tempDate = formatTaskDate(new Date())
+    vi.mocked(coursesApi.apiList).mockResolvedValue([{ id: 4, createdBy: 8, memberId: 8, memberName: '小宝', title: '钢琴', date: tempDate, dayOfWeek: (new Date().getDay() + 6) % 7 + 1, startTime: '15:00:00', endTime: '16:00:00', color: 'purple', status: 'PENDING', note: '' }])
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(tempWrapper.find('.course-edit-button').exists()).toBe(false)
+    expect(tempWrapper.find('.course-name').attributes('disabled')).toBeDefined()
+    tempWrapper.unmount()
+  })
+  it('keeps two courses stacked in the same weekday and period', async () => {
+    const tempDate = formatTaskDate(new Date())
+    const tempCourse = { id: 6, createdBy: 7, memberId: 7, memberName: '小宇', title: '英语', date: tempDate, dayOfWeek: 2, startTime: '15:00:00', endTime: '16:00:00', color: 'blue' as const, status: 'PENDING' as const, note: '' }
+    vi.mocked(coursesApi.apiList).mockResolvedValue([tempCourse, { ...tempCourse, id: 7, title: '钢琴', startTime: '16:30:00', endTime: '17:30:00' }])
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const tempCell = tempWrapper.findAll('.course-stack').find((item) => item.findAll('.course-card').length === 2)!
+    expect(tempCell.findAll('.course-name').map((item) => item.text())).toEqual(['英语', '钢琴'])
+    expect(tempCell.findAll('.course-time-row .course-edit-button')).toHaveLength(2)
+    tempWrapper.unmount()
+  })
+  it('lets the creator maintain and record a course assigned to another member', async () => {
+    const tempDate = formatTaskDate(new Date())
+    vi.mocked(coursesApi.apiList).mockResolvedValue([{ id: 5, createdBy: 7, memberId: 8, memberName: '小宝', title: '英语', date: tempDate, dayOfWeek: (new Date().getDay() + 6) % 7 + 1, startTime: '15:00:00', endTime: '16:00:00', color: 'blue', status: 'PENDING', note: '' }])
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(tempWrapper.find('.course-edit-button').exists()).toBe(true)
+    expect(tempWrapper.find('.record-button').exists()).toBe(true)
+    await tempWrapper.find('.course-edit-button').trigger('click')
+    await flushPromises()
+    expect((tempWrapper.find('input[placeholder="例如：英语、钢琴"]').element as HTMLInputElement).value).toBe('英语')
+    tempWrapper.unmount()
+  })
+  it('shows the lesson balances above the schedule without treating unset as zero', async () => {
+    vi.mocked(coursesApi.apiBalances).mockResolvedValue([
+      { courseId: 1, title: '英语', memberId: 7, memberName: '小宇', remainingLessons: 12, totalLessons: 12, editable: true },
+      { courseId: 2, title: '画画', memberId: 7, memberName: '小宇', remainingLessons: null, totalLessons: null, editable: true },
+      { courseId: 3, title: '跆拳道', memberId: 7, memberName: '小宇', remainingLessons: 8, totalLessons: 8, editable: true },
+    ])
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(tempWrapper.find('.lesson-balances').text()).toContain('英语')
+    expect(tempWrapper.find('.lesson-balances').text()).toContain('12')
+    expect(tempWrapper.find('.lesson-balances').text()).toContain('未设置')
+    expect(tempWrapper.find('.lesson-balances').text()).toContain('跆拳道')
+    tempWrapper.unmount()
+  })
+  it('saves a current remaining balance without creating a timetable course', async () => {
+    vi.mocked(coursesApi.apiBalances).mockResolvedValue([{ courseId: null, title: '篮球', memberId: 7, memberName: '小宇', remainingLessons: 19, totalLessons: 19, editable: true }])
+    const tempWrapper = mount(CoursesView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await tempWrapper.find('button[aria-label="设置篮球剩余课时"]').trigger('click')
+    await flushPromises()
+    const tempInput = tempWrapper.find('input[role="spinbutton"]')
+    await tempInput.setValue('20')
+    await tempInput.trigger('change')
+    await tempWrapper.findAll('button').find((item) => item.text() === '保存')!.trigger('click')
+    await flushPromises()
+    expect(coursesApi.apiSaveBalance).toHaveBeenCalledWith({ memberId: 7, title: '篮球', remainingLessons: 20, totalLessons: 19 })
+    expect(coursesApi.apiCreate).not.toHaveBeenCalled()
+    tempWrapper.unmount()
+  })
+})

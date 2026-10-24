@@ -57,7 +57,8 @@ describe('authenticated compact navigation', () => {
     })
 
     expect(tempWrapper.find('.sidebar').classes()).toContain('sidebar-collapsed')
-    expect(tempWrapper.findAll('.nav-list a')).toHaveLength(7)
+    expect(tempWrapper.findAll('.nav-list a')).toHaveLength(8)
+    expect(tempWrapper.find('.nav-list a[href="/courses"]').attributes('aria-label')).toBe('课程表')
     expect(tempWrapper.find('.nav-list a[href="/daily-tasks"]').attributes('title')).toBe('每日任务')
     expect(tempWrapper.find('.nav-list a[href="/photos"]').attributes('title')).toBe('照片管理')
     expect(tempWrapper.find('.nav-list a[href="/photos"]').attributes('aria-label')).toBe('照片管理')
