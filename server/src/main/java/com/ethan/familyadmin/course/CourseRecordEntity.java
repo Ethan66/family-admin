@@ -21,6 +21,7 @@ public class CourseRecordEntity extends BaseEntity implements TenantOwnedEntity 
     private LocalTime endTime;
     private String status;
     private String note;
+    private Boolean automatic;
     @TableField(exist = false)
     private BigDecimal remainingLessons;
     @TableField(exist = false)

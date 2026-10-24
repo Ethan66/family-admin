@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { EditPen, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { coursesApi } from '@/api/courses'
@@ -12,7 +12,7 @@ import type { MemberOption } from '@/types/api'
 import type { CourseBalance, CourseColor, CourseOccurrence, CoursePayload, CourseRecord, CourseStatus } from '@/types/course'
 
 const authStore = useAuthStore()
-const today = formatTaskDate(new Date())
+const today = ref(formatTaskDate(new Date()))
 const activeTab = ref('week')
 const memberId = ref<number | ''>('')
 const membersData = ref<MemberOption[]>([])
@@ -56,6 +56,8 @@ const courseRules: FormRules = {
 }
 let loadSequence = 0
 let memberSequence = 0
+let refreshTimer: ReturnType<typeof setInterval> | undefined
+let isAutoRefreshing = false
 const activeFamilyId = computed(() => authStore.user ? resolveActiveFamilyId(authStore.user, authStore.selectedFamilyId) : null)
 
 watch([activeFamilyId, () => authStore.user?.id], () => {
@@ -72,7 +74,7 @@ watch([activeFamilyId, () => authStore.user?.id], () => {
   isBalanceDialogVisible.value = false
   if (activeFamilyId.value !== null) void apiLoadMembers()
 }, { immediate: true })
-watch([activeFamilyId, () => authStore.user?.id, memberId, recordPage], apiLoadData, { immediate: true })
+watch([activeFamilyId, () => authStore.user?.id, memberId, recordPage], () => { void apiLoadData() }, { immediate: true })
 watch(memberId, () => { recordPage.value = 1 })
 watch(activeTab, () => { recordPage.value = 1 })
 watch([() => historyFilters.title, () => historyFilters.status, () => historyFilters.month], () => {
@@ -94,15 +96,17 @@ function dayCourses(day: number, period: string): CourseOccurrence[] {
   return coursesData.value.filter((course) => course.dayOfWeek === day && getCoursePeriod(course.startTime) === period)
 }
 /** 切换家庭或成员后旧请求不能覆盖当前页面，失败时提供重试入口。 */
-async function apiLoadData(): Promise<void> {
+async function apiLoadData(background = false): Promise<void> {
   const tempSequence = ++loadSequence
-  coursesData.value = []
-  recordsData.value = []
-  balancesData.value = []
-  recordTotal.value = 0
+  if (!background) {
+    coursesData.value = []
+    recordsData.value = []
+    balancesData.value = []
+    recordTotal.value = 0
+  }
   loadFailed.value = false
   if (activeFamilyId.value === null) { isLoading.value = false; return }
-  isLoading.value = true
+  if (!background) isLoading.value = true
   try {
     const res = await Promise.all([
       coursesApi.apiList({ memberId: memberId.value === '' ? undefined : memberId.value }),
@@ -179,7 +183,7 @@ function handleRecord(course: CourseOccurrence): void {
   selectedCourseData.value = course
   isReadOnly.value = !canEdit(course)
   Object.assign(recordForm, { date: course.date, title: course.title, time: timeLabel(course.startTime, course.endTime),
-    status: course.status === 'LEAVE' ? 'LEAVE' : 'ATTENDED', note: course.note })
+    status: course.date > today.value || course.status === 'LEAVE' ? 'LEAVE' : 'ATTENDED', note: course.note })
   isRecordDialogVisible.value = true
 }
 function handleViewRecord(record: CourseRecord): void {
@@ -222,6 +226,18 @@ async function handleSaveBalance(): Promise<void> {
     await apiLoadData()
   } finally { isSubmitting.value = false }
 }
+/** 静默刷新服务器自动记课结果，编辑弹窗内不刷新，跨午夜时同步当天日期。 */
+async function handleAutoRefresh(): Promise<void> {
+  const tempNow = new Date()
+  if (tempNow.getHours() < 9 || tempNow.getHours() > 19 || (tempNow.getHours() === 19 && tempNow.getMinutes() > 0)
+    || document.visibilityState === 'hidden' || isAutoRefreshing || isLoading.value || isSubmitting.value
+    || isCourseDialogVisible.value || isRecordDialogVisible.value || isBalanceDialogVisible.value) return
+  isAutoRefreshing = true
+  today.value = formatTaskDate(new Date())
+  try { await apiLoadData(true) } finally { isAutoRefreshing = false }
+}
+onMounted(() => { refreshTimer = setInterval(() => { void handleAutoRefresh() }, 30 * 60_000) })
+onUnmounted(() => { clearInterval(refreshTimer); ++loadSequence; ++memberSequence })
 </script>
 
 <template>
@@ -237,7 +253,7 @@ async function handleSaveBalance(): Promise<void> {
     </header>
     <el-empty v-if="activeFamilyId === null" description="请先选择家庭" />
     <template v-else>
-      <div v-if="loadFailed" class="load-error" role="alert">课程加载失败 <el-button @click="apiLoadData">重新加载</el-button></div>
+      <div v-if="loadFailed" class="load-error" role="alert">课程加载失败 <el-button @click="apiLoadData()">重新加载</el-button></div>
       <section v-if="activeTab === 'week'" v-loading="isLoading" class="surface schedule-panel" aria-label="每周课程表">
         <header class="week-toolbar">
           <div class="lesson-balances" aria-label="剩余课时">
@@ -260,7 +276,7 @@ async function handleSaveBalance(): Promise<void> {
                     <div class="course-card-heading"><button class="course-name" type="button" :disabled="!canEdit(course) || isSubmitting" :aria-label="`编辑课程：${course.title}`" @click="handleEdit(course)">{{ course.title }}</button><span class="status-tag" :class="course.status.toLowerCase()">{{ options.statuses[course.status] }}</span></div>
                     <div class="course-time-row"><div class="course-time">{{ timeLabel(course.startTime, course.endTime) }}</div><button v-if="canEdit(course)" class="course-edit-button" type="button" :disabled="isSubmitting" :aria-label="`编辑课程：${course.title}`" @click="handleEdit(course)"><el-icon><edit-pen /></el-icon>编辑</button></div>
                     <div v-if="memberId === ''" class="course-member">{{ course.memberName }}</div>
-                    <button v-if="canEdit(course) && course.date <= today" class="record-button" type="button" :disabled="isSubmitting" @click="handleRecord(course)"><el-icon><edit-pen /></el-icon>{{ course.status === 'PENDING' ? '记上课' : '修改记录' }}</button>
+                    <button v-if="canEdit(course)" class="record-button" type="button" :disabled="isSubmitting" @click="handleRecord(course)"><el-icon><edit-pen /></el-icon>{{ course.status === 'PENDING' ? (course.date > today ? '请假' : '记上课') : '修改记录' }}</button>
                   </article>
                 </div>
               </td>
@@ -268,6 +284,7 @@ async function handleSaveBalance(): Promise<void> {
           </table>
         </div>
         <p v-if="!isLoading && !loadFailed && !coursesData.length" class="empty-week">暂无课程，点击“添加课程”开始安排</p>
+        <p class="form-hint">每天 09:00–19:00 每半小时检查，已结束的课程自动记为已上课并扣 1 课时，请提前标记请假。</p>
       </section>
       <section v-if="activeTab === 'records'" v-loading="isLoading" class="surface records-panel" aria-label="上课记录">
         <header class="records-heading"><h2>上课记录</h2>
@@ -310,7 +327,7 @@ async function handleSaveBalance(): Promise<void> {
     </el-dialog>
     <el-dialog v-model="isRecordDialogVisible" :title="isReadOnly ? '上课记录' : '记上课'" width="460px" destroy-on-close :close-on-click-modal="false">
       <div class="record-summary"><strong>{{ recordForm.title }}</strong><span>{{ dateLabel(recordForm.date) }} · {{ recordForm.time }}</span></div>
-      <el-form label-position="top" :disabled="isReadOnly || isSubmitting"><el-form-item label="上课状态"><el-radio-group v-model="recordForm.status"><el-radio-button value="ATTENDED">已上课</el-radio-button><el-radio-button value="LEAVE">请假</el-radio-button></el-radio-group></el-form-item><el-form-item label="课堂备注"><el-input v-model="recordForm.note" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="记录课堂内容、学习情况等" /></el-form-item></el-form>
+      <el-form label-position="top" :disabled="isReadOnly || isSubmitting"><el-form-item label="上课状态"><el-radio-group v-model="recordForm.status"><el-radio-button value="ATTENDED" :disabled="recordForm.date > today">已上课</el-radio-button><el-radio-button value="LEAVE">请假</el-radio-button></el-radio-group></el-form-item><el-form-item label="课堂备注"><el-input v-model="recordForm.note" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="记录课堂内容、学习情况等" /></el-form-item></el-form>
       <template #footer><el-button :disabled="isSubmitting" @click="isRecordDialogVisible = false">关闭</el-button><el-button v-if="!isReadOnly" type="primary" :loading="isSubmitting" @click="handleSaveRecord">保存记录</el-button></template>
     </el-dialog>
   </div>

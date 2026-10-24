@@ -193,7 +193,7 @@ public class CourseService {
     @Transactional(rollbackFor = Exception.class)
     public void record(Long id, AttendancePayload payload) {
         var course = requireCourse(id, true);
-        if (payload.date() == null || !occurs(course, payload.date()) || payload.date().isAfter(LocalDate.now())
+        if (payload.date() == null || !occurs(course, payload.date()) || (payload.date().isAfter(LocalDate.now()) && !"LEAVE".equals(payload.status()))
             || payload.status() == null || !Set.of("ATTENDED", "LEAVE").contains(payload.status())
             || payload.note() == null || payload.note().length() > 500) invalid();
         // 课程转给其他成员后，原成员的历史记录仍不能由新成员改写。
@@ -208,6 +208,7 @@ public class CourseService {
         record.setFamilyId(course.getFamilyId()); record.setCourseId(id); record.setMemberId(course.getMemberId());
         record.setMemberName(course.getMemberName()); record.setTitle(course.getTitle()); record.setCourseDate(payload.date());
         record.setStartTime(course.getStartTime()); record.setEndTime(course.getEndTime()); record.setStatus(payload.status()); record.setNote(payload.note());
+        record.setAutomatic(false);
         record.setCreatedBy(TenantContext.requiredUser().userId()); record.setCreatedAt(LocalDateTime.now());
         record.setUpdatedBy(record.getCreatedBy()); record.setUpdatedAt(record.getCreatedAt());
         records.upsert(record);

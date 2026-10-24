@@ -103,6 +103,47 @@ describe('course schedule page', () => {
     expect(coursesApi.apiRecord).toHaveBeenCalledWith(3, { date: tempDate, status: 'ATTENDED', note: '完成自然拼读' })
     tempWrapper.unmount()
   })
+  it('allows advance leave but disables recording future attendance', async () => {
+    vi.mocked(coursesApi.apiList).mockResolvedValue([{ id: 3, createdBy: 7, memberId: 7, memberName: '小宇', title: '英语', date: '2099-01-04', dayOfWeek: 1, startTime: '15:00:00', endTime: '16:30:00', color: 'blue', status: 'PENDING', note: '' }])
+    const tempWrapper=mount(CoursesView,{global:{plugins:[ElementPlus]}})
+    await flushPromises()
+    expect(tempWrapper.find('.record-button').text()).toBe('请假')
+    await tempWrapper.find('.record-button').trigger('click')
+    await flushPromises()
+    const tempAttended=tempWrapper.findAllComponents({name:'ElRadioButton'}).find((item)=>item.props('value')==='ATTENDED')!
+    expect(tempAttended.props('disabled')).toBe(true)
+    await tempWrapper.findAll('button').find((item)=>item.text()==='保存记录')!.trigger('click')
+    await flushPromises()
+    expect(coursesApi.apiRecord).toHaveBeenCalledWith(3,{date:'2099-01-04',status:'LEAVE',note:''})
+    tempWrapper.unmount()
+  })
+  it('refreshes automatic results in the background and clears its timer on unmount', async () => {
+    const tempHour=vi.spyOn(Date.prototype,'getHours').mockReturnValue(10)
+    const tempVisibility=vi.spyOn(document,'visibilityState','get').mockReturnValue('visible')
+    const tempTimers=vi.spyOn(globalThis,'setInterval')
+    const tempClear=vi.spyOn(globalThis,'clearInterval')
+    const tempWrapper=mount(CoursesView,{global:{plugins:[ElementPlus]}})
+    try {
+      await flushPromises()
+      const tempIndex=tempTimers.mock.calls.findIndex((item)=>item[1]===30*60_000)
+      expect(tempIndex).toBeGreaterThanOrEqual(0)
+      const tempRefresh=tempTimers.mock.calls[tempIndex]![0] as () => void
+      vi.mocked(coursesApi.apiList).mockClear()
+      tempRefresh()
+      await flushPromises()
+      expect(coursesApi.apiList).toHaveBeenCalledTimes(1)
+      await tempWrapper.findAll('button').find((item)=>item.text().includes('添加课程'))!.trigger('click')
+      await flushPromises()
+      tempRefresh()
+      await flushPromises()
+      expect(coursesApi.apiList).toHaveBeenCalledTimes(1)
+      tempWrapper.unmount()
+      expect(tempClear).toHaveBeenCalledWith(tempTimers.mock.results[tempIndex]!.value)
+    } finally {
+      tempWrapper.unmount()
+      tempVisibility.mockRestore(); tempTimers.mockRestore(); tempClear.mockRestore(); tempHour.mockRestore()
+    }
+  })
   it('edits an existing recurring course and refreshes the card after saving', async () => {
     const tempDate = formatTaskDate(new Date())
     const tempCourse = { id: 3, createdBy: 7, memberId: 7, memberName: '小宇', title: '英语', date: tempDate, dayOfWeek: 1, startTime: '15:00:00', endTime: '16:30:00', color: 'blue' as const, status: 'PENDING' as const, note: '' }

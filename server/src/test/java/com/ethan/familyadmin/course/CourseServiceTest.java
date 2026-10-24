@@ -110,6 +110,13 @@ class CourseServiceTest {
         assertThatThrownBy(() -> service.record(1L, new AttendancePayload(course.getCourseDate(), "ATTENDED", "")))
             .isInstanceOf(BusinessException.class);
     }
+    @Test void canMarkFutureLeaveBeforeAutomaticAttendanceRuns() {
+        var course=course(); course.setCourseDate(LocalDate.now().plusDays(1));
+        when(mapper.selectById(1L)).thenReturn(course);
+        service.record(1L,new AttendancePayload(course.getCourseDate(),"LEAVE","提前请假"));
+        verify(records).upsert(any());
+        verify(balances,never()).adjust(any(),any(),any(),anyInt(),any());
+    }
     @Test void recordUpsertUsesAuthenticatedFamilyAndCourseSnapshot() {
         var course = course(); course.setCourseDate(LocalDate.now().minusDays(7));
         when(mapper.selectById(1L)).thenReturn(course);
