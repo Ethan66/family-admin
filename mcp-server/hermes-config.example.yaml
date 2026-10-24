@@ -1,0 +1,14 @@
+# 合并到 Hermes 实际运行账号的 config.yaml；不要覆盖原有微信配置。
+# 同时合并到已有 platform_toolsets，不覆盖其他平台。
+platform_toolsets:
+  weixin:
+    - hermes-weixin
+    - mcp-family-admin
+mcp_servers:
+  family-admin:
+    command: /opt/family-admin-mcp/.venv/bin/python
+    args:
+      - -m
+      - family_admin_mcp.server
+    env:
+      FAMILY_ENV_FILE: /opt/family-admin-mcp/.env

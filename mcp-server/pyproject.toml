@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "family-admin-mcp"
+version = "0.4.1"
+description = "Hermes stdio tools for the family-admin REST API"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.20,<2", "httpx>=0.28,<1", "python-dotenv>=1,<2", "tzdata>=2025.2; sys_platform == 'win32'"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "pytest-asyncio>=0.24,<2"]
+
+[project.scripts]
+family-admin-mcp = "family_admin_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/family_admin_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["src"]
+asyncio_mode = "auto"

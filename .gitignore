@@ -12,6 +12,12 @@ storage/*
 !storage/.gitkeep
 *.log
 *.tsbuildinfo
+__pycache__/
+.pytest_cache/
+mcp-server/.venv/
+mcp-server/dist/
+mcp-server/*.egg-info/
+mcp-server/.state/
 .env
 .env.*
 !.env.example
