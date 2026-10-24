@@ -236,7 +236,7 @@ async function handleAutoRefresh(): Promise<void> {
   today.value = formatTaskDate(new Date())
   try { await apiLoadData(true) } finally { isAutoRefreshing = false }
 }
-onMounted(() => { refreshTimer = setInterval(() => { void handleAutoRefresh() }, 30 * 60_000) })
+onMounted(() => { refreshTimer = setInterval(() => { void handleAutoRefresh() }, 60 * 60_000) })
 onUnmounted(() => { clearInterval(refreshTimer); ++loadSequence; ++memberSequence })
 </script>
 
@@ -284,7 +284,7 @@ onUnmounted(() => { clearInterval(refreshTimer); ++loadSequence; ++memberSequenc
           </table>
         </div>
         <p v-if="!isLoading && !loadFailed && !coursesData.length" class="empty-week">暂无课程，点击“添加课程”开始安排</p>
-        <p class="form-hint">每天 09:00–19:00 每半小时检查，已结束的课程自动记为已上课并扣 1 课时，请提前标记请假。</p>
+        <p class="form-hint">每天 09:00–19:00 每小时整点检查，已结束的课程自动记为已上课并扣 1 课时，请提前标记请假。</p>
       </section>
       <section v-if="activeTab === 'records'" v-loading="isLoading" class="surface records-panel" aria-label="上课记录">
         <header class="records-heading"><h2>上课记录</h2>

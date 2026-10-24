@@ -13,7 +13,7 @@ class CourseAutoAttendanceJobTest {
     final CourseAutoAttendanceService worker = mock(CourseAutoAttendanceService.class);
     final Clock clock = Clock.fixed(Instant.parse("2026-10-25T07:01:00Z"), ZoneId.of("Asia/Shanghai"));
     final CourseAutoAttendanceJob job = new CourseAutoAttendanceJob(courses, states, worker, clock);
-    @Test void scheduleStartsAtNineAndRunsAtHalfHourBoundaries() throws Exception {
+    @Test void scheduleRunsHourlyFromNineThroughNineteen() throws Exception {
         var schedules=CourseAutoAttendanceJob.class.getMethod("run").getAnnotationsByType(org.springframework.scheduling.annotation.Scheduled.class);
         var expressions=new java.util.ArrayList<org.springframework.scheduling.support.CronExpression>();
         for(var schedule:schedules) {
@@ -22,7 +22,8 @@ class CourseAutoAttendanceJobTest {
             expressions.add(org.springframework.scheduling.support.CronExpression.parse(expression.substring(expression.indexOf(':')+1,expression.length()-1)));
         }
         assertThat(next(expressions,LocalDateTime.of(2026,10,25,8,0))).isEqualTo(LocalDateTime.of(2026,10,25,9,0));
-        assertThat(next(expressions,LocalDateTime.of(2026,10,25,9,0))).isEqualTo(LocalDateTime.of(2026,10,25,9,30));
+        assertThat(next(expressions,LocalDateTime.of(2026,10,25,9,0))).isEqualTo(LocalDateTime.of(2026,10,25,10,0));
+        assertThat(next(expressions,LocalDateTime.of(2026,10,25,18,0))).isEqualTo(LocalDateTime.of(2026,10,25,19,0));
         assertThat(next(expressions,LocalDateTime.of(2026,10,25,18,30))).isEqualTo(LocalDateTime.of(2026,10,25,19,0));
         assertThat(next(expressions,LocalDateTime.of(2026,10,25,19,0))).isEqualTo(LocalDateTime.of(2026,10,26,9,0));
     }

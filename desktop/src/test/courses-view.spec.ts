@@ -125,7 +125,7 @@ describe('course schedule page', () => {
     const tempWrapper=mount(CoursesView,{global:{plugins:[ElementPlus]}})
     try {
       await flushPromises()
-      const tempIndex=tempTimers.mock.calls.findIndex((item)=>item[1]===30*60_000)
+      const tempIndex=tempTimers.mock.calls.findIndex((item)=>item[1]===60*60_000)
       expect(tempIndex).toBeGreaterThanOrEqual(0)
       const tempRefresh=tempTimers.mock.calls[tempIndex]![0] as () => void
       vi.mocked(coursesApi.apiList).mockClear()

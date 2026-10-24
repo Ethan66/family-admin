@@ -28,11 +28,11 @@ public class CourseAutoAttendanceJob {
     public void initialize() {
         states.initialize(LocalDateTime.now(clock).withNano(0));
         var state=states.read();
-        LOG.info("Automatic attendance enabledFrom={} scannedThrough={} schedule=09:00-19:00 every 30 minutes Asia/Shanghai",state.enabledFrom(),state.scannedThrough());
+        LOG.info("Automatic attendance enabledFrom={} scannedThrough={} schedule=09:00-19:00 every hour Asia/Shanghai",state.enabledFrom(),state.scannedThrough());
     }
 
     /** 检查点仅在整批成功后推进；失败重试及多实例扫描由课次行锁保证不重复扣减。 */
-    @Scheduled(cron="${family-admin.courses.auto-attendance.cron:0 0,30 9-18 * * *}",zone="Asia/Shanghai")
+    @Scheduled(cron="${family-admin.courses.auto-attendance.cron:0 0 9-18 * * *}",zone="Asia/Shanghai")
     @Scheduled(cron="${family-admin.courses.auto-attendance.closing-cron:0 0 19 * * *}",zone="Asia/Shanghai")
     public void run() {
         var now=LocalDateTime.now(clock).withNano(0);
