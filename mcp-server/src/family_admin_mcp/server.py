@@ -36,6 +36,8 @@ def build_server(settings: Settings) -> FastMCP:
             "课程先查课表，使用课程专用默认成员，明确提到其他成员时用其真实成员编号；同名多节先按时间选择。"
             "记录课程仅支持今天或过去且星期匹配的日期；已上课=ATTENDED，已请假=LEAVE，不为未来请假。"
             "同课程同日期会更新已有状态和备注，改变已有状态前先说明并确认。课时调整只由后端完成，不自行扣减或猜余额。"
+            "存折仅可调用list_passbooks查询，禁止新增、编辑或删除存折；用户要求存折写操作时说明不支持，不能借其他工具绕过。"
+            "存折默认全家，可按成员和存款日期筛选；合计为后端筛选范围内全部记录，不是当前页，利息和本息沿用后端值不重新估算。"
         ),
         lifespan=lifespan,
     )
@@ -152,6 +154,19 @@ def build_server(settings: Settings) -> FastMCP:
         返回total与has_more；有后续页时不能把当前页当作完整历史。记录中的课时余额为后端当前值，并非当日余额快照。
         """
         return await invoke(ctx, "list_course_records", member_id=member_id, page=page, title=title, status=status, month=month)
+
+    @server.tool(annotations=read)
+    async def list_passbooks(ctx: Context, member_id: int | None = None, start_date: str | None = None,
+                             end_date: str | None = None, page: int = 1, page_size: int = 20,
+                             sort: Literal["DEPOSIT_DATE_DESC", "DEPOSIT_DATE_ASC", "MATURITY_DATE_ASC", "MATURITY_DATE_DESC"] = "DEPOSIT_DATE_DESC") -> dict:
+        """只读查询存折：成员、银行、存款日、本金、年限、利率、到期日、总利息、本息合计及备注。不支持创建、编辑和删除。
+
+        默认当前家庭全部成员，不套用zc/han默认；可指定家庭成员。start_date/end_date为YYYY-MM-DD，按存款日期含首尾过滤。
+        可按存款日或到期日升降序排序，每页1至100条。返回分页及后端全量本金/本息合计；不要将当前页当全部明细。
+        到期日排序不是到期日筛选，银行仅展示，当前没有银行筛选。金额为精确字符串，不自行按利率重算利息。
+        """
+        return await invoke(ctx, "list_passbooks", member_id=member_id, start_date=start_date, end_date=end_date,
+                            page=page, page_size=page_size, sort=sort)
 
     return server
 

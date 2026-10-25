@@ -245,3 +245,51 @@ class FamilyService:
         data = await self.client.request("GET", "/courses/records", params=params)
         return {"member_id": member["userId"], "page": page, "page_size": 20, "total": data["total"],
                 "has_more": page * 20 < data["total"], "records": data["records"]}
+
+    async def list_passbooks(self, member_id=None, start_date=None, end_date=None, page=1, page_size=20,
+                             sort="DEPOSIT_DATE_DESC"):
+        if not isinstance(page, int) or isinstance(page, bool) or page < 1:
+            raise ValueError("页码必须是正整数")
+        if not isinstance(page_size, int) or isinstance(page_size, bool) or not 1 <= page_size <= 100:
+            raise ValueError("每页条数必须是1至100的整数")
+        if sort not in {"DEPOSIT_DATE_DESC", "DEPOSIT_DATE_ASC", "MATURITY_DATE_ASC", "MATURITY_DATE_DESC"}:
+            raise ValueError("存折排序只能选择存款日期或到期日期的升序、降序")
+        start = iso_date(start_date) if start_date is not None else None
+        end = iso_date(end_date) if end_date is not None else None
+        if start is not None and end is not None and start > end:
+            raise ValueError("存款开始日期不能晚于结束日期")
+        params = {"page": page, "pageSize": page_size, "sort": sort}
+        if start is not None:
+            params["startDate"] = start.isoformat()
+        if end is not None:
+            params["endDate"] = end.isoformat()
+        user = await self.client.identity()
+        scope = "当前家庭全部成员"
+        if member_id is not None:
+            member = await self._member(user, member_id)
+            params["memberId"] = member["userId"]
+            scope = "当前家庭成员：" + member["displayName"]
+        # This path is deliberately GET-only; no generic method/path arguments or write journal.
+        data = await self.client.request("GET", "/passbooks", params=params, exact_decimals=True)
+
+        def number(value, *, money=True):
+            try:
+                value = Decimal(str(value))
+                if not value.is_finite():
+                    raise ValueError
+                return format(value, ".2f" if money else "f")
+            except (InvalidOperation, ValueError, TypeError):
+                raise ApiError("存折查询金额回执格式不正确，请重新查询") from None
+
+        records = []
+        for row in data["records"]:
+            record = {**row}
+            for key in ("amount", "totalInterest", "totalAmount"):
+                record[key] = number(record[key])
+            record["interestRate"] = number(record["interestRate"], money=False)
+            records.append(record)
+        return {"scope": scope, "member_id": member_id, "start_date": start_date, "end_date": end_date,
+                "sort": sort, "page": data["page"], "page_size": data["pageSize"], "total": data["total"],
+                "has_more": data["page"] * data["pageSize"] < data["total"], "records": records,
+                "total_principal": number(data["totalPrincipal"]), "total_amount": number(data["totalAmount"]),
+                "totals_scope": "当前家庭及筛选条件内全部存折，不限当前页", "date_filter": "存款日期（含首尾）"}

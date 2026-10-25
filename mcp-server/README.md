@@ -17,6 +17,7 @@
 | `list_courses` | 查询成员本周课表，默认服务端成员；用于定位课程ID、星期和时间 |
 | `record_course_attendance` | 记录某天已上课（ATTENDED）或已请假（LEAVE） |
 | `list_course_records` | 分页查询课程记录，可按成员、课程名、状态和月份筛选 |
+| `list_passbooks` | 只读查询当前家庭存折，支持成员、存款日期、分页与排序，返回全量合计 |
 
 所有日期使用 `YYYY-MM-DD`，时间使用北京时间 `HH:MM`，金额使用最多两位小数的字符串。先获取当前日期和成员，金额缺失、操作意图不明确或任务存在多个匹配时追问。
 
@@ -37,6 +38,16 @@
 历史记录每页20条，工具返回 `page`、`page_size`、`total` 和 `has_more`；有后续页时不能把一页当全部记录或据此统计全部上课次数。课程名称过滤为完整名称，月份 `YYYY-MM`，状态只支持 `ATTENDED`、`LEAVE`。本版不支持MCP新增/删除课程定义、编辑课时余额或未来请假。
 
 ## 使用边界
+
+### 存折仅查询
+
+示例：“查一下全家的存折”“查一下zc的存折”“按到期日期从近到远列出存折”。默认当前绑定家庭全部成员，不套用记账zc或课程han的默认成员；指定成员时验证其属于当前家庭。
+
+只开放 `list_passbooks`，内部固定调用 `GET /passbooks`，不提供存折创建、编辑、删除工具或任意接口代理。工具标记 `readOnlyHint=true`、`destructiveHint=false`；用户要求修改或删除存折时，应说明MCP不支持，不得借其他工具绕过。既有Java存折管理功能不因此移除，当前后端admin账号也不是全局只读账号；只读限制指本MCP的存折工具能力。
+
+可按存款日起止日期（YYYY-MM-DD，含首尾）筛选，按存款日或到期日升降序排序，分页每页1至100条。日期筛选不是到期日筛选，银行字段目前仅展示，没有银行筛选参数。返回成员、银行、本金、存款日、年限、利率、到期日、总利息、本息合计和备注。
+
+`total_principal`、`total_amount` 使用后端对全部符合筛选条件存折的合计，不是当前页金额之和。`records` 只是当前页，应结合 `total`、`has_more` 继续翻页，不能以一页明细做全量成员或银行分析。金额及利率以精确小数字符串返回，不经过二进制浮点中转；不按利率重新推算利息或声称本息为当前可用余额。
 
 第一版固定绑定一个账号。普通成员自动使用所属家庭；使用超级管理员（例如 `admin`）时，必须在服务端设置 `FAMILY_ID`，每次认证请求发送固定的 `X-Family-Id`，且校验当前身份返回的家庭与配置一致。工具参数不能切换家庭、指定账号或任意接口地址。
 
@@ -83,7 +94,7 @@ chmod 600 .env
 1. 备份 Hermes 实际运行账号的 `~/.hermes/config.yaml`。
 2. 将 `hermes-config.example.yaml` 的 `family-admin` 条目合并到现有 `mcp_servers`，并在 `platform_toolsets.weixin` 保留 `hermes-weixin`、加入 `mcp-family-admin`，不要覆盖其他平台或微信连接设置。凭证放在 MCP 的 `.env`，不要放进工具参数。
 3. 保证 Hermes 运行账号可执行上述 Python，并能读取 `.env` 和读写持久化 `state` 目录。
-4. 在该账号和同一 Hermes profile 下执行 `hermes mcp test family-admin`，检查11个工具的发现结果。具体命令以服务器 `hermes mcp --help` 为准。
+4. 在该账号和同一 Hermes profile 下执行 `hermes mcp test family-admin`，检查12个工具的发现结果。具体命令以服务器 `hermes mcp --help` 为准。
 5. 按当前 Hermes 服务的管理方式重启网关或重新加载 MCP，确保处理微信消息的进程实际加载配置。只启动新的终端会话不代表原微信网关已更新。
 6. 先通过授权私聊调用 `get_family_context`，核对账号和家庭，再做一次明确标记的测试记账/任务并在桌面端核对。清理生产测试数据必须有用户明确授权；不对真实账目或任务做自动删除测试。
 

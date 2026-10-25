@@ -24,6 +24,12 @@ class Backend:
         self.courses = [{"id": 31, "memberId": 7, "memberName": "小明", "title": "钢琴",
                          "dayOfWeek": 6, "date": "2026-10-24", "startTime": "10:00:00", "endTime": "11:00:00", "status": "PENDING"}]
         self.course_records = {"records": [], "total": 0}
+        self.passbooks = {"records": [{"id": 51, "memberId": 7, "memberName": "小明", "bank": "农商",
+                          "depositDate": "2025-02-28", "amount": 100.25, "termYears": 1, "interestRate": 2.5,
+                          "maturityDate": "2026-02-28", "totalInterest": 2.51, "totalAmount": 102.76, "note": "备注"}],
+                          "total": 21, "page": 1, "pageSize": 20, "totalPrincipal": 2000.25, "totalAmount": 2050.51}
+        self.passbooks_json = None
+        self.passbook_error = None
 
     async def handle(self, request):
         self.calls.append(request)
@@ -47,6 +53,12 @@ class Backend:
             return self.ok([c for c in self.courses if member is None or str(c["memberId"]) == member])
         if request.method == "GET" and path == "/api/courses/records":
             return self.ok(self.course_records)
+        if request.method == "GET" and path == "/api/passbooks":
+            if self.passbook_error:
+                return httpx.Response(self.passbook_error)
+            if self.passbooks_json is not None:
+                return httpx.Response(200, content=self.passbooks_json, headers={"Content-Type": "application/json"})
+            return self.ok(self.passbooks)
         self.writes.append(request)
         if self.fail == "timeout":
             raise httpx.ReadTimeout("private transport details", request=request)
@@ -430,6 +442,60 @@ async def test_invalid_course_history_filters_rejected(setup, changes):
     service, backend, _ = setup
     with pytest.raises(ValueError):
         await service.list_course_records(**changes)
+    assert backend.writes == []
+
+
+async def test_passbooks_readonly_defaults_to_whole_family_and_backend_totals(setup):
+    service, backend, _ = setup
+    result = await service.list_passbooks()
+    request = next(r for r in backend.calls if r.url.path == "/api/passbooks")
+    assert request.method == "GET"
+    assert dict(request.url.params) == {"page": "1", "pageSize": "20", "sort": "DEPOSIT_DATE_DESC"}
+    assert result["scope"] == "当前家庭全部成员"
+    assert result["total_principal"] == "2000.25" and result["total_amount"] == "2050.51"
+    assert result["records"][0]["amount"] == "100.25" and result["records"][0]["bank"] == "农商"
+    assert result["records"][0]["note"] == "备注"
+    assert result["total"] == 21 and result["has_more"] is True
+    assert backend.writes == []
+
+
+async def test_passbook_filters_use_deposit_dates_and_explicit_member(setup):
+    service, backend, _ = setup
+    backend.passbooks.update({"page": 2, "pageSize": 10})
+    result = await service.list_passbooks(member_id=8, start_date="2024-02-29", end_date="2026-10-25", page=2, page_size=10, sort="MATURITY_DATE_ASC")
+    request = next(r for r in backend.calls if r.url.path == "/api/passbooks")
+    assert dict(request.url.params) == {"memberId": "8", "startDate": "2024-02-29", "endDate": "2026-10-25", "page": "2", "pageSize": "10", "sort": "MATURITY_DATE_ASC"}
+    assert result["member_id"] == 8 and result["page"] == 2 and result["page_size"] == 10
+    assert backend.writes == []
+
+
+@pytest.mark.parametrize("changes", [
+    {"page": 0}, {"page": True}, {"page_size": 0}, {"page_size": 101}, {"page_size": True},
+    {"member_id": 999}, {"member_id": 0}, {"sort": "DELETE"},
+    {"start_date": "今天"}, {"end_date": "2026-02-30"}, {"start_date": "2026-10-25", "end_date": "2026-10-24"},
+])
+async def test_invalid_passbook_query_never_hits_business_endpoint(setup, changes):
+    service, backend, _ = setup
+    with pytest.raises(ValueError):
+        await service.list_passbooks(**changes)
+    assert not any(r.url.path == "/api/passbooks" for r in backend.calls)
+    assert backend.writes == []
+
+
+async def test_passbook_large_totals_keep_decimal_cents_exact(setup):
+    service, backend, _ = setup
+    backend.passbooks_json = '{"code":"SUCCESS","data":{"records":[],"total":0,"page":1,"pageSize":20,"totalPrincipal":9007199254740993.01,"totalAmount":9007199254740993.09}}'
+    result = await service.list_passbooks()
+    assert result["total_principal"] == "9007199254740993.01"
+    assert result["total_amount"] == "9007199254740993.09"
+
+
+@pytest.mark.parametrize("status", [403, 500])
+async def test_passbook_backend_errors_are_not_empty_success(setup, status):
+    service, backend, _ = setup
+    backend.passbook_error = status
+    with pytest.raises(ApiError):
+        await service.list_passbooks()
     assert backend.writes == []
 
 

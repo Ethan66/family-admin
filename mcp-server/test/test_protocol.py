@@ -32,11 +32,14 @@ async def test_stdio_discovery_and_tool_errors_are_valid_mcp(tmp_path):
             tools = {tool.name: tool for tool in (await session.list_tools()).tools}
             assert set(tools) == {"get_family_context", "add_transaction", "list_transactions",
                                  "create_daily_task", "list_daily_tasks", "complete_daily_task", "delete_daily_task", "delete_expense",
-                                 "list_courses", "record_course_attendance", "list_course_records"}
+                                 "list_courses", "record_course_attendance", "list_course_records", "list_passbooks"}
             assert tools["get_family_context"].annotations.readOnlyHint is True
             assert tools["delete_daily_task"].annotations.destructiveHint is True
             assert tools["delete_expense"].annotations.destructiveHint is True
             assert tools["list_courses"].annotations.readOnlyHint is True
+            assert tools["list_passbooks"].annotations.readOnlyHint is True
+            assert tools["list_passbooks"].annotations.destructiveHint is False
+            assert [name for name in tools if "passbook" in name] == ["list_passbooks"]
             assert tools["record_course_attendance"].inputSchema["properties"]["status"]["enum"] == ["ATTENDED", "LEAVE"]
             assert "request_id" in tools["add_transaction"].inputSchema["required"]
             invalid = await session.call_tool("add_transaction", {
@@ -173,6 +176,62 @@ async def test_stdio_course_attendance_and_leave_update_same_record(tmp_path):
             result = json.loads(history.content[0].text)
             assert result["total"] == 1 and result["records"][0]["status"] == "LEAVE"
             assert result["has_more"] is False and len(writes) == 2
+    finally:
+        http.shutdown()
+        http.server_close()
+        worker.join(timeout=5)
+
+
+async def test_stdio_passbook_query_has_no_write_tools_or_requests(tmp_path):
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass
+
+        def do_POST(self):
+            requests.append(("POST", self.path))
+            assert self.path == "/api/auth/login"
+            self.respond({"accessToken": "test-token"})
+
+        def do_GET(self):
+            requests.append(("GET", self.path))
+            assert self.headers["Authorization"] == "Bearer test-token"
+            if self.path == "/api/auth/me":
+                self.respond({"id": 7, "familyId": 2, "displayName": "测试成员", "role": "FAMILY_MEMBER"})
+            else:
+                assert self.path.startswith("/api/passbooks?")
+                self.respond({"records": [{"id": 51, "memberId": 7, "memberName": "测试成员", "bank": "农商",
+                                          "depositDate": "2025-02-28", "amount": 100.25, "termYears": 1,
+                                          "interestRate": 2.5, "maturityDate": "2026-02-28", "totalInterest": 2.51,
+                                          "totalAmount": 102.76, "note": "仅查询"}],
+                              "total": 2, "page": 1, "pageSize": 1, "totalPrincipal": 300.3, "totalAmount": 310.31})
+
+        def respond(self, data):
+            body = json.dumps({"code": "SUCCESS", "data": data}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    worker = threading.Thread(target=http.serve_forever, daemon=True)
+    worker.start()
+    try:
+        async with session_for(tmp_path, f"http://127.0.0.1:{http.server_port}/api") as session:
+            tools = {t.name: t for t in (await session.list_tools()).tools}
+            assert [name for name in tools if "passbook" in name] == ["list_passbooks"]
+            assert tools["list_passbooks"].annotations.readOnlyHint is True
+            result = await session.call_tool("list_passbooks", {"page_size": 1, "sort": "MATURITY_DATE_ASC"})
+            assert not result.isError
+            value = json.loads(result.content[0].text)
+            assert value["total_principal"] == "300.30" and value["total_amount"] == "310.31"
+            assert value["records"][0]["amount"] == "100.25" and value["has_more"] is True
+            before = len(requests)
+            unknown = await session.call_tool("delete_passbook", {"id": 51})
+            assert unknown.isError and len(requests) == before
+            assert all(method == "GET" or path == "/api/auth/login" for method, path in requests)
     finally:
         http.shutdown()
         http.server_close()

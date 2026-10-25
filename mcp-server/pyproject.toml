@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "family-admin-mcp"
-version = "0.4.1"
+version = "0.5.0"
 description = "Hermes stdio tools for the family-admin REST API"
 requires-python = ">=3.11"
 dependencies = ["mcp>=1.20,<2", "httpx>=0.28,<1", "python-dotenv>=1,<2", "tzdata>=2025.2; sys_platform == 'win32'"]

@@ -1,4 +1,5 @@
 import asyncio
+from decimal import Decimal
 
 import httpx
 
@@ -33,7 +34,7 @@ class ApiClient:
         return response
 
     @staticmethod
-    def _decode(response):
+    def _decode(response, *, exact_decimals=False):
         if response.status_code >= 500 or 300 <= response.status_code < 400:
             raise ApiError("后端异常或发生重定向；写入结果待核实，勿换编号重试")
         if response.status_code >= 400:
@@ -42,7 +43,7 @@ class ApiClient:
             raise ApiError(messages.get(response.status_code, "后端拒绝请求，请检查输入"),
                            definite=response.status_code in {400, 401, 403, 404, 405, 409, 422, 429})
         try:
-            body = response.json()
+            body = response.json(parse_float=Decimal) if exact_decimals else response.json()
         except ValueError:
             raise ApiError("后端回执无法解析；写入结果待核实") from None
         if not isinstance(body, dict):
@@ -66,7 +67,7 @@ class ApiClient:
                 raise ApiError("登录回执缺少有效凭证")
             self._token = data["accessToken"]
 
-    async def request(self, method, path, *, params=None, json=None):
+    async def request(self, method, path, *, params=None, json=None, exact_decimals=False):
         if not self._token:
             await self._login()
         token = self._token
@@ -75,7 +76,7 @@ class ApiClient:
         if response.status_code in {401, 403}:
             await self._login(expired_token=token)
             response = await self._send(method, path, token=self._token, params=params, json=json)
-        return self._decode(response)
+        return self._decode(response, exact_decimals=exact_decimals)
 
     async def identity(self):
         user = await self.request("GET", "/auth/me")
