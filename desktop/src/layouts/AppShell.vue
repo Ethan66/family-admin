@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Collection,
   Calendar,
+  Wallet,
   DataAnalysis,
   Document,
   Film,
@@ -91,6 +92,7 @@ onMounted(loadFamilies)
       <nav class="nav-list">
         <router-link to="/dashboard" title="家庭概览" aria-label="家庭概览" data-label="家庭概览"><el-icon><grid /></el-icon><span>家庭概览</span></router-link>
         <router-link to="/transactions" title="收入支出" aria-label="收入支出" data-label="收入支出"><el-icon><data-analysis /></el-icon><span>收入支出</span></router-link>
+        <router-link to="/passbooks" title="存折" aria-label="存折" data-label="存折"><el-icon><wallet /></el-icon><span>存折</span></router-link>
         <router-link to="/daily-tasks" title="每日任务" aria-label="每日任务" data-label="每日任务"><el-icon><calendar /></el-icon><span>每日任务</span></router-link>
         <router-link to="/courses" title="课程表" aria-label="课程表" data-label="课程表"><el-icon><calendar /></el-icon><span>课程表</span></router-link>
         <router-link to="/exams" title="试卷管理" aria-label="试卷管理" data-label="试卷管理"><el-icon><collection /></el-icon><span>试卷管理</span></router-link>

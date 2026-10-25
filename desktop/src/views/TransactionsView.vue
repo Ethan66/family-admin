@@ -19,11 +19,13 @@ const membersData = ref<MemberOption[]>([])
 const isMembersLoading = ref(false)
 const editingId = ref<number | null>(null)
 const transactionFormRef = ref<FormInstance>()
-const filters = reactive({ month: new Date().toLocaleDateString('sv-SE').slice(0, 7), type: '', memberName: '', category: '', page: 1, pageSize: 20 })
-const transactionForm = reactive<TransactionPayload>({ type: 'EXPENSE', amount: 0, transactionDate: '', category: '', memberName: '', note: null })
+const filters = reactive({ month: new Date().toLocaleDateString('sv-SE').slice(0, 7), type: '', memberName: '', category: '', bankCard: '', platform: '', page: 1, pageSize: 20 })
+const transactionForm = reactive<TransactionPayload>({ type: 'EXPENSE', amount: 0, transactionDate: '', category: '', memberName: '', bankCard: null, platform: null, note: null })
 const options = {
   filterTypes: [{ label: '全部', value: '' }, { label: '收入', value: 'INCOME' }, { label: '支出', value: 'EXPENSE' }],
   types: [{ label: '收入', value: 'INCOME' }, { label: '支出', value: 'EXPENSE' }],
+  bankCards: ['工商', '农业', '交通', '光大', '招商', '支付宝', '微信'],
+  platforms: ['支付宝', '微信', '京东', '美团', '拼多多', '淘宝', '抖音'],
   categories: ['餐饮', '交通', '教育', '住房', '医疗', '娱乐', '工资', '其他'],
 }
 const transactionRules: FormRules<TransactionPayload> = {
@@ -106,7 +108,7 @@ async function loadTransactions(): Promise<void> {
   }
   isLoading.value = true
   try {
-    const tempParams = { month: filters.month || undefined, type: filters.type || undefined, memberName: filters.memberName || undefined, category: filters.category || undefined }
+    const tempParams = { month: filters.month || undefined, type: filters.type || undefined, memberName: filters.memberName || undefined, category: filters.category || undefined, bankCard: filters.bankCard || undefined, platform: filters.platform || undefined }
     const [res, summaryRes] = await Promise.all([
       transactionsApi.list({ ...tempParams, page: filters.page, pageSize: filters.pageSize }),
       transactionsApi.summary(tempParams),
@@ -122,7 +124,7 @@ async function loadTransactions(): Promise<void> {
 
 function resetTransactionForm(): void {
   if (!authStore.user) return
-  Object.assign(transactionForm, { type: 'EXPENSE', amount: 0, transactionDate: new Date().toLocaleDateString('sv-SE'), category: '', memberName: authStore.user.displayName, note: null })
+  Object.assign(transactionForm, { type: 'EXPENSE', amount: 0, transactionDate: new Date().toLocaleDateString('sv-SE'), category: '', memberName: authStore.user.displayName, bankCard: null, platform: null, note: null })
   editingId.value = null
 }
 
@@ -139,7 +141,7 @@ function handleCreate(): void {
 }
 
 function handleEdit(record: TransactionRecord): void {
-  Object.assign(transactionForm, { type: record.type, amount: Number(record.amount), transactionDate: record.transactionDate, category: record.category, memberName: record.memberName, note: record.note })
+  Object.assign(transactionForm, { type: record.type, amount: Number(record.amount), transactionDate: record.transactionDate, category: record.category, memberName: record.memberName, bankCard: record.bankCard, platform: record.platform, note: record.note })
   editingId.value = record.id
   isDialogVisible.value = true
   void loadMembers()
@@ -187,6 +189,8 @@ watch([activeFamilyId, () => authStore.user?.id, () => authStore.user?.displayNa
         <div class="field"><label>类型</label><el-select v-model="filters.type"><el-option v-for="option in options.filterTypes" :key="option.value" :label="option.label" :value="option.value" /></el-select></div>
         <div class="field"><label>成员</label><el-select v-model="filters.memberName" data-testid="transaction-member-filter" placeholder="全部成员" :clearable="isAdmin"><el-option v-for="option in filterMemberOptions" :key="option.value" :label="option.label" :value="option.value" /></el-select></div>
         <div class="field"><label>分类</label><el-select v-model="filters.category" placeholder="全部分类" clearable><el-option v-for="category in options.categories" :key="category" :label="category" :value="category" /></el-select></div>
+        <div class="field"><label>银行卡</label><el-select v-model="filters.bankCard" data-testid="transaction-bank-card-filter" placeholder="全部银行卡" clearable><el-option v-for="bankCard in options.bankCards" :key="bankCard" :label="bankCard" :value="bankCard" /></el-select></div>
+        <div class="field"><label>消费平台</label><el-select v-model="filters.platform" data-testid="transaction-platform-filter" placeholder="全部平台" clearable><el-option v-for="platform in options.platforms" :key="platform" :label="platform" :value="platform" /></el-select></div>
         <el-button class="toolbar-end" :icon="Search" @click="handleSearch">查询</el-button>
         <el-button v-if="canCreate" data-testid="create-transaction" type="primary" :icon="Plus" @click="handleCreate">新增记录</el-button>
       </div>
@@ -198,8 +202,8 @@ watch([activeFamilyId, () => authStore.user?.id, () => authStore.user?.displayNa
       </div>
       <div class="grid-7-5">
         <div class="card"><div class="card-head"><div><h3>账目明细</h3><p>共 {{ total }} 笔</p></div></div><div class="card-body">
-          <div v-loading="isLoading" class="table-wrap"><table><thead><tr><th>日期</th><th>类型</th><th>分类</th><th>备注</th><th class="right">金额</th><th class="right">操作</th></tr></thead><tbody>
-            <tr v-for="record in transactionsData" :key="record.id"><td class="muted">{{ record.transactionDate }}</td><td><span class="tag" :class="record.type === 'INCOME' ? 'tag-income' : 'tag-expense'">{{ record.type === 'INCOME' ? '收入' : '支出' }}</span></td><td>{{ record.category }}</td><td><div class="cell-title">{{ record.note || '—' }}</div><div class="cell-sub">{{ record.memberName }}</div></td><td class="right"><strong class="amount" :class="record.type === 'INCOME' ? 'up' : 'down'">{{ formatAmount(record) }}</strong></td><td class="right"><div v-if="canManage(record)" class="row-actions"><button class="btn-text" @click="handleEdit(record)">编辑</button><button class="btn-text is-danger" @click="handleRemove(record)">删除</button></div><span v-else class="muted">只读</span></td></tr>
+          <div v-loading="isLoading" class="table-wrap"><table><thead><tr><th>日期</th><th>类型</th><th>分类</th><th>银行卡</th><th>消费平台</th><th>备注</th><th class="right">金额</th><th class="right">操作</th></tr></thead><tbody>
+            <tr v-for="record in transactionsData" :key="record.id"><td class="muted">{{ record.transactionDate }}</td><td><span class="tag" :class="record.type === 'INCOME' ? 'tag-income' : 'tag-expense'">{{ record.type === 'INCOME' ? '收入' : '支出' }}</span></td><td>{{ record.category }}</td><td>{{ record.bankCard || '—' }}</td><td>{{ record.platform || '—' }}</td><td><div class="cell-title">{{ record.note || '—' }}</div><div class="cell-sub">{{ record.memberName }}</div></td><td class="right"><strong class="amount" :class="record.type === 'INCOME' ? 'up' : 'down'">{{ formatAmount(record) }}</strong></td><td class="right"><div v-if="canManage(record)" class="row-actions"><button class="btn-text" @click="handleEdit(record)">编辑</button><button class="btn-text is-danger" @click="handleRemove(record)">删除</button></div><span v-else class="muted">只读</span></td></tr>
           </tbody></table><div v-if="!isLoading && !transactionsData.length" class="empty"><div class="empty-title">没有符合条件的记录</div><div class="empty-desc">换个筛选条件，或新增一笔试试</div></div></div>
           <el-pagination v-if="total > filters.pageSize" v-model:current-page="filters.page" class="pagination" :page-size="filters.pageSize" :total="total" layout="prev, pager, next" @current-change="loadTransactions" />
         </div></div>
@@ -210,6 +214,10 @@ watch([activeFamilyId, () => authStore.user?.id, () => authStore.user?.displayNa
       <el-form ref="transactionFormRef" :model="transactionForm" :rules="transactionRules" label-position="top">
         <div class="form-grid"><el-form-item label="类型" prop="type"><el-radio-group v-model="transactionForm.type"><el-radio-button v-for="option in options.types" :key="option.value" :value="option.value">{{ option.label }}</el-radio-button></el-radio-group></el-form-item><el-form-item label="金额" prop="amount"><el-input-number v-model="transactionForm.amount" :min="0.01" :precision="2" :step="10" controls-position="right" /></el-form-item></div>
         <div class="form-grid"><el-form-item label="日期" prop="transactionDate"><el-date-picker v-model="transactionForm.transactionDate" value-format="YYYY-MM-DD" type="date" placeholder="选择日期" /></el-form-item><el-form-item label="分类" prop="category"><el-select v-model="transactionForm.category" allow-create filterable><el-option v-for="category in options.categories" :key="category" :label="category" :value="category" /></el-select></el-form-item></div>
+        <div class="form-grid">
+          <el-form-item label="银行卡" prop="bankCard"><el-select v-model="transactionForm.bankCard" data-testid="transaction-bank-card" placeholder="请选择银行卡" clearable><el-option v-for="bankCard in options.bankCards" :key="bankCard" :label="bankCard" :value="bankCard" /></el-select></el-form-item>
+          <el-form-item label="消费平台" prop="platform"><el-select v-model="transactionForm.platform" data-testid="transaction-platform" placeholder="请选择消费平台" clearable><el-option v-for="platform in options.platforms" :key="platform" :label="platform" :value="platform" /></el-select></el-form-item>
+        </div>
         <el-form-item label="家庭成员" prop="memberName">
           <el-select v-model="transactionForm.memberName" data-testid="transaction-member" placeholder="请选择家庭成员" filterable style="width: 100%">
             <el-option v-for="option in memberOptions" :key="option.value" :label="option.label" :value="option.value" :disabled="option.disabled" />

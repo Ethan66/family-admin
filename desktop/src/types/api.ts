@@ -43,6 +43,8 @@ export interface TransactionRecord {
   transactionDate: string
   category: string
   memberName: string
+  bankCard: string | null
+  platform: string | null
   note: string | null
   createdBy: number
   createdAt: string
@@ -62,6 +64,8 @@ export interface TransactionPayload {
   transactionDate: string
   category: string
   memberName: string
+  bankCard: string | null
+  platform: string | null
   note: string | null
 }
 

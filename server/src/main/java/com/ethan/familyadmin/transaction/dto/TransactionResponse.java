@@ -14,6 +14,8 @@ public record TransactionResponse(
     String category,
     String memberName,
     String note,
+    String bankCard,
+    String platform,
     Long createdBy,
     LocalDateTime createdAt
 ) {

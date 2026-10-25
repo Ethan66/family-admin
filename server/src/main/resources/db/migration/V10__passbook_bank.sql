@@ -1,0 +1,2 @@
+ALTER TABLE passbook
+    ADD COLUMN bank VARCHAR(20) NULL COMMENT '银行';

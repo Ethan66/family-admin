@@ -1,0 +1,20 @@
+CREATE TABLE passbook (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    family_id BIGINT NOT NULL,
+    member_id BIGINT NOT NULL,
+    member_name VARCHAR(100) NOT NULL,
+    deposit_date DATE NOT NULL,
+    amount DECIMAL(14,2) NOT NULL,
+    term_years INT NOT NULL,
+    interest_rate DECIMAL(7,4) NOT NULL COMMENT '年利率，百分比',
+    total_interest DECIMAL(14,2) NOT NULL COMMENT '手动录入的总利息',
+    created_by BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_by BIGINT NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    INDEX idx_passbook_family_date (family_id, deleted, deposit_date),
+    INDEX idx_passbook_family_member_date (family_id, member_id, deleted, deposit_date),
+    CONSTRAINT fk_passbook_family FOREIGN KEY (family_id) REFERENCES family(id),
+    CONSTRAINT fk_passbook_member FOREIGN KEY (member_id) REFERENCES sys_user(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

@@ -33,10 +33,12 @@ public class TransactionController {
         @RequestParam(required = false) TransactionType type,
         @RequestParam(required = false) String category,
         @RequestParam(required = false) String memberName,
+        @RequestParam(required = false) String bankCard,
+        @RequestParam(required = false) String platform,
         @RequestParam(defaultValue = "1") long page,
         @RequestParam(defaultValue = "20") long pageSize
     ) {
-        return ApiResponse.success(transactionService.list(new TransactionQuery(month, type, category, memberName, page, pageSize)));
+        return ApiResponse.success(transactionService.list(new TransactionQuery(month, type, category, memberName, bankCard, platform, page, pageSize)));
     }
 
     @GetMapping("/summary")
@@ -44,9 +46,11 @@ public class TransactionController {
         @RequestParam(required = false) String month,
         @RequestParam(required = false) TransactionType type,
         @RequestParam(required = false) String category,
-        @RequestParam(required = false) String memberName
+        @RequestParam(required = false) String memberName,
+        @RequestParam(required = false) String bankCard,
+        @RequestParam(required = false) String platform
     ) {
-        return ApiResponse.success(transactionService.summary(new TransactionQuery(month, type, category, memberName, 1, 100)));
+        return ApiResponse.success(transactionService.summary(new TransactionQuery(month, type, category, memberName, bankCard, platform, 1, 100)));
     }
 
     @PostMapping

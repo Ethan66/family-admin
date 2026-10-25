@@ -70,6 +70,8 @@ public class TransactionService {
             query.type() == null ? null : query.type().name(),
             query.category() == null || query.category().isBlank() ? null : query.category(),
             query.memberName() == null || query.memberName().isBlank() ? null : query.memberName(),
+            query.bankCard() == null || query.bankCard().isBlank() ? null : query.bankCard(),
+            query.platform() == null || query.platform().isBlank() ? null : query.platform(),
             monthStart,
             monthEnd
         );
@@ -105,6 +107,8 @@ public class TransactionService {
             .eq(query.type() != null, TransactionEntity::getType, query.type() == null ? null : query.type().name())
             .eq(query.category() != null && !query.category().isBlank(), TransactionEntity::getCategory, query.category())
             .eq(query.memberName() != null && !query.memberName().isBlank(), TransactionEntity::getMemberName, query.memberName())
+            .eq(query.bankCard() != null && !query.bankCard().isBlank(), TransactionEntity::getBankCard, query.bankCard())
+            .eq(query.platform() != null && !query.platform().isBlank(), TransactionEntity::getPlatform, query.platform())
             .orderByDesc(TransactionEntity::getTransactionDate)
             .orderByDesc(TransactionEntity::getId);
         if (query.month() != null && !query.month().isBlank()) {
@@ -130,6 +134,8 @@ public class TransactionService {
         entity.setCategory(request.category());
         entity.setMemberName(request.memberName());
         entity.setNote(request.note());
+        entity.setBankCard(request.bankCard() == null || request.bankCard().isEmpty() ? null : request.bankCard());
+        entity.setPlatform(request.platform() == null || request.platform().isEmpty() ? null : request.platform());
     }
 
     private TransactionResponse toResponse(TransactionEntity entity) {
@@ -141,6 +147,8 @@ public class TransactionService {
             entity.getCategory(),
             entity.getMemberName(),
             entity.getNote(),
+            entity.getBankCard(),
+            entity.getPlatform(),
             entity.getCreatedBy(),
             entity.getCreatedAt()
         );

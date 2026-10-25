@@ -53,7 +53,7 @@ class TransactionServiceTest {
             LocalDate.of(2026, 9, 23),
             "餐饮",
             "爸爸",
-            "早餐"
+            "早餐", null, null
         );
 
         service.create(request);
@@ -67,10 +67,10 @@ class TransactionServiceTest {
     @Test
     void summaryUsesDatabaseAggregateWithinCurrentFamily() {
         TransactionAggregate aggregate = aggregate("5000.00", "1210.00", 1L, 2L);
-        when(transactionMapper.selectAggregate(31L, null, null, null,
+        when(transactionMapper.selectAggregate(31L, null, null, null, null, null,
             LocalDate.of(2026, 9, 1), LocalDate.of(2026, 10, 1))).thenReturn(aggregate);
 
-        TransactionSummaryResponse summary = service.summary(new TransactionQuery("2026-09", null, null, null, 1, 20));
+        TransactionSummaryResponse summary = service.summary(new TransactionQuery("2026-09", null, null, null, null, null, 1, 20));
 
         assertThat(summary.expense()).isEqualByComparingTo("1210.00");
         assertThat(summary.income()).isEqualByComparingTo("5000.00");
@@ -88,7 +88,7 @@ class TransactionServiceTest {
                 new com.baomidou.mybatisplus.core.MybatisConfiguration(), "test"), TransactionEntity.class);
         when(transactionMapper.selectPage(any(), any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.list(new TransactionQuery("2026-10", TransactionType.EXPENSE, "餐饮", "妈妈", 1, 20));
+        service.list(new TransactionQuery("2026-10", TransactionType.EXPENSE, "餐饮", "妈妈", null, null, 1, 20));
 
         var captor = org.mockito.ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
         verify(transactionMapper).selectPage(any(), captor.capture());
@@ -99,15 +99,15 @@ class TransactionServiceTest {
 
     @Test
     void summaryPassesTypeAndCategoryFiltersToAggregate() {
-        when(transactionMapper.selectAggregate(31L, "EXPENSE", "餐饮", "爸爸", null, null))
+        when(transactionMapper.selectAggregate(31L, "EXPENSE", "餐饮", "爸爸", null, null, null, null))
             .thenReturn(aggregate("0.00", "12.30", 0L, 1L));
 
         TransactionSummaryResponse summary = service.summary(
-            new TransactionQuery(null, TransactionType.EXPENSE, "餐饮", "爸爸", 1, 20));
+            new TransactionQuery(null, TransactionType.EXPENSE, "餐饮", "爸爸", null, null, 1, 20));
 
         assertThat(summary.expense()).isEqualByComparingTo("12.30");
         assertThat(summary.income()).isEqualByComparingTo("0.00");
-        verify(transactionMapper).selectAggregate(31L, "EXPENSE", "餐饮", "爸爸", null, null);
+        verify(transactionMapper).selectAggregate(31L, "EXPENSE", "餐饮", "爸爸", null, null, null, null);
     }
 
     private TransactionAggregate aggregate(String income, String expense, long incomeCount, long expenseCount) {

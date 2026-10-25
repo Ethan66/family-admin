@@ -6,7 +6,7 @@ describe('desktop routes', () => {
     const shellRoute = routes.find((route) => route.path === '/')
     const childPaths = shellRoute?.children?.map((route) => route.path)
 
-    expect(childPaths).toEqual(expect.arrayContaining(['photos', 'movies', 'notes', 'exams', 'daily-tasks']))
+    expect(childPaths).toEqual(expect.arrayContaining(['photos', 'movies', 'notes', 'exams', 'daily-tasks', 'passbooks']))
   })
 
   it('protects administrator pages with the super administrator role', () => {

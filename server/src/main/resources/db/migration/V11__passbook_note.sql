@@ -1,0 +1,2 @@
+ALTER TABLE passbook
+    ADD COLUMN note VARCHAR(500) NULL COMMENT '备注';
