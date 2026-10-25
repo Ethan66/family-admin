@@ -80,7 +80,8 @@ class FamilyService:
         self.journal.finish(scope, request_id, result)
         return result
 
-    async def add_transaction(self, request_id, amount, category, transaction_date, type="EXPENSE", member_id=None, note=""):
+    async def add_transaction(self, request_id, amount, category, transaction_date, type="EXPENSE", member_id=None, note="",
+                               bank_card=None, platform=None):
         try:
             value = Decimal(amount)
             if not value.is_finite() or not 0 < value < Decimal("1000000000000") or value != value.quantize(Decimal("0.01")):
@@ -92,6 +93,21 @@ class FamilyService:
         payload = {"amount": f"{value:.2f}", "type": type,
                    "category": text(category, "分类", 50), "transactionDate": iso_date(transaction_date).isoformat(),
                    "note": text(note, "备注", 500, required=False)}
+        for key, option, label, allowed in (
+            ("bankCard", bank_card, "银行卡", {"工商", "农业", "交通", "光大", "招商", "支付宝", "微信"}),
+            ("platform", platform, "消费平台", {"支付宝", "微信", "京东", "美团", "拼多多", "淘宝", "抖音"}),
+        ):
+            if option is None:
+                continue
+            if not isinstance(option, str):
+                raise ValueError(f"{label}必须从系统支持的选项中选择")
+            option = option.strip()
+            if not option:
+                # Omit blank fields to preserve pre-upgrade idempotency fingerprints.
+                continue
+            if option not in allowed:
+                raise ValueError(f"{label}必须从系统支持的选项中选择")
+            payload[key] = option
         user = await self.client.identity()
         member = await self._member(user, member_id)
         payload["memberName"] = member["displayName"]

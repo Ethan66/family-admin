@@ -38,6 +38,7 @@ def build_server(settings: Settings) -> FastMCP:
             "同课程同日期会更新已有状态和备注，改变已有状态前先说明并确认。课时调整只由后端完成，不自行扣减或猜余额。"
             "存折仅可调用list_passbooks查询，禁止新增、编辑或删除存折；用户要求存折写操作时说明不支持，不能借其他工具绕过。"
             "存折默认全家，可按成员和存款日期筛选；合计为后端筛选范围内全部记录，不是当前页，利息和本息沿用后端值不重新估算。"
+            "新增收入或支出可填写bank_card银行卡/付款账户类别和platform消费平台，二者独立，未说明就留空，不凭平台猜账户，不收集真实卡号。"
         ),
         lifespan=lifespan,
     )
@@ -63,13 +64,18 @@ def build_server(settings: Settings) -> FastMCP:
     @server.tool(annotations=write)
     async def add_transaction(request_id: str, amount: str, category: str, transaction_date: str,
                               ctx: Context, type: Literal["INCOME", "EXPENSE"] = "EXPENSE",
-                              member_id: int | None = None, note: str = "") -> dict:
+                              member_id: int | None = None, note: str = "",
+                              bank_card: Literal["", "工商", "农业", "交通", "光大", "招商", "支付宝", "微信"] | None = None,
+                              platform: Literal["", "支付宝", "微信", "京东", "美团", "拼多多", "淘宝", "抖音"] | None = None) -> dict:
         """新增一笔人民币收支。amount 为精确金额字符串，日期 YYYY-MM-DD，使用服务端默认成员。
 
         request_id 使用稳定的来源消息编号:操作序号，重试不变。不要同时记明细和包含这些明细的日总额。
+        可选bank_card是银行卡/支付账户类别，不是卡号；platform是消费平台。按用户明确内容分别填写，不填则留空，不相互猜测。
+        例如美团消费50元用招商支付：bank_card=招商、platform=美团；工资到工商可只填bank_card=工商。
         """
         return await invoke(ctx, "add_transaction", request_id=request_id, amount=amount, category=category,
-                            transaction_date=transaction_date, type=type, member_id=member_id, note=note)
+                            transaction_date=transaction_date, type=type, member_id=member_id, note=note,
+                            bank_card=bank_card, platform=platform)
 
     @server.tool(annotations=read)
     async def list_transactions(from_date: str, ctx: Context, to_date: str | None = None) -> dict:

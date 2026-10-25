@@ -114,6 +114,45 @@ async def test_write_uses_backend_identity_and_exact_amount(setup):
     assert "secret-token" not in json.dumps(result)
 
 
+@pytest.mark.parametrize("kind", ["INCOME", "EXPENSE"])
+async def test_transaction_writes_bank_card_and_platform_separately(setup, kind):
+    service, backend, _ = setup
+    result = await add(service, type=kind, bank_card="招商", platform="美团")
+    body = json.loads(backend.writes[0].content)
+    assert body["type"] == kind and body["bankCard"] == "招商" and body["platform"] == "美团"
+    assert result["record"]["bankCard"] == "招商" and result["record"]["platform"] == "美团"
+    assert await add(service, type=kind, bank_card="招商", platform="美团") == result
+    assert len(backend.writes) == 1
+    with pytest.raises(ValueError, match="编号"):
+        await add(service, type=kind, bank_card="工商", platform="美团")
+
+
+@pytest.mark.parametrize("changes,key,value", [
+    ({"bank_card": card}, "bankCard", card) for card in ["工商", "农业", "交通", "光大", "招商", "支付宝", "微信"]
+] + [({"platform": platform}, "platform", platform) for platform in ["支付宝", "微信", "京东", "美团", "拼多多", "淘宝", "抖音"]])
+async def test_supported_transaction_payment_options(setup, changes, key, value):
+    service, backend, _ = setup
+    await add(service, **changes)
+    assert json.loads(backend.writes[0].content)[key] == value
+
+
+async def test_empty_payment_fields_preserve_old_request_fingerprint(setup):
+    service, backend, _ = setup
+    result = await add(service)
+    assert await add(service, bank_card="", platform=" ") == result
+    assert len(backend.writes) == 1
+    body = json.loads(backend.writes[0].content)
+    assert "bankCard" not in body and "platform" not in body
+
+
+@pytest.mark.parametrize("changes", [{"bank_card": "建设"}, {"platform": "其他"}, {"bank_card": True}, {"platform": 123}])
+async def test_unsupported_payment_options_never_write(setup, changes):
+    service, backend, _ = setup
+    with pytest.raises(ValueError):
+        await add(service, **changes)
+    assert backend.writes == []
+
+
 @pytest.mark.parametrize("changes", [
     {"amount": "0"}, {"amount": "-1"}, {"amount": "1.001"}, {"amount": "NaN"},
     {"amount": "Infinity"}, {"amount": "1000000000000"}, {"transaction_date": "今天"}, {"transaction_date": "2026-02-30"},

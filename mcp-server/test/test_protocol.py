@@ -42,6 +42,9 @@ async def test_stdio_discovery_and_tool_errors_are_valid_mcp(tmp_path):
             assert [name for name in tools if "passbook" in name] == ["list_passbooks"]
             assert tools["record_course_attendance"].inputSchema["properties"]["status"]["enum"] == ["ATTENDED", "LEAVE"]
             assert "request_id" in tools["add_transaction"].inputSchema["required"]
+            payment_schema = tools["add_transaction"].inputSchema["properties"]
+            assert "bank_card" in payment_schema and "platform" in payment_schema
+            assert "bank_card" not in tools["add_transaction"].inputSchema["required"]
             invalid = await session.call_tool("add_transaction", {
                 "request_id": "test:0", "amount": "-1", "category": "餐饮", "transaction_date": "2026-10-24",
             })
@@ -95,10 +98,11 @@ async def test_stdio_end_to_end_write_read_and_duplicate_receipt(tmp_path):
             context = await session.call_tool("get_family_context", {})
             assert not context.isError
             assert json.loads(context.content[0].text)["timezone"] == "Asia/Shanghai"
-            arguments = {"request_id": "wx:message:0", "amount": "35.10", "category": "餐饮", "transaction_date": "2026-10-24"}
+            arguments = {"request_id": "wx:message:0", "amount": "35.10", "category": "餐饮", "transaction_date": "2026-10-24", "bank_card": "工商", "platform": "美团"}
             saved = await session.call_tool("add_transaction", arguments)
             assert not saved.isError
             assert json.loads(saved.content[0].text)["status"] == "saved"
+            assert records[0]["bankCard"] == "工商" and records[0]["platform"] == "美团"
             duplicate = await session.call_tool("add_transaction", arguments)
             assert not duplicate.isError
             assert len(records) == 1
