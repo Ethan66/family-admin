@@ -1,6 +1,9 @@
 package com.ethan.familyadmin.transaction;
 
 import com.ethan.familyadmin.common.exception.BusinessException;
+import com.ethan.familyadmin.common.exception.ErrorCode;
+import com.ethan.familyadmin.family.UserEntity;
+import com.ethan.familyadmin.family.UserMapper;
 import com.ethan.familyadmin.security.CurrentUser;
 import com.ethan.familyadmin.security.Role;
 import com.ethan.familyadmin.security.TenantAccessGuard;
@@ -13,11 +16,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,11 +38,14 @@ class TransactionServiceTest {
     @Mock
     private TransactionMapper transactionMapper;
 
+    @Mock
+    private UserMapper userMapper;
+
     private TransactionService service;
 
     @BeforeEach
     void setUp() {
-        service = new TransactionService(transactionMapper, new TenantAccessGuard());
+        service = new TransactionService(transactionMapper, new TenantAccessGuard(), userMapper);
         TenantContext.set(new CurrentUser(7L, 31L, Role.FAMILY_MEMBER, 0));
     }
 
@@ -128,6 +137,103 @@ class TransactionServiceTest {
 
         assertThatThrownBy(() -> service.delete(9L)).isInstanceOf(BusinessException.class);
         verify(transactionMapper, never()).deleteById(9L);
+    }
+
+    @Test
+    void selectedMemberCanUpdateRecordCreatedByAnotherMember() {
+        selectedMemberRecord(31L);
+        service.update(9L, new CreateTransactionRequest(TransactionType.EXPENSE, new BigDecimal("3.00"),
+            LocalDate.of(2026, 10, 26), "餐饮", "zc", "修改", null, null));
+        verify(transactionMapper).updateById(any(TransactionEntity.class));
+    }
+
+    @Test
+    void selectedMemberCanDeleteRecordCreatedByAnotherMember() {
+        selectedMemberRecord(31L);
+        LocalDateTime beforeDelete = LocalDateTime.now();
+        service.delete(9L);
+        var captor = org.mockito.ArgumentCaptor.forClass(TransactionEntity.class);
+        verify(transactionMapper).deleteById(captor.capture());
+        TransactionEntity deleted = captor.getValue();
+        assertThat(deleted.getId()).isEqualTo(9L);
+        assertThat(deleted.getCreatedBy()).isEqualTo(8L);
+        assertThat(deleted.getUpdatedBy()).isEqualTo(7L);
+        assertThat(deleted.getUpdatedAt()).isBetween(beforeDelete, LocalDateTime.now());
+
+        // 使用实际映射检查逻辑删除的参数，避免仅模拟 Mapper 漏掉数据库空值问题。
+        var configuration = new com.baomidou.mybatisplus.core.MybatisConfiguration();
+        configuration.addMapper(TransactionMapper.class);
+        var boundSql = configuration.getMappedStatement(TransactionMapper.class.getName() + ".deleteById")
+            .getBoundSql(deleted);
+        assertThat(boundSql.getSql()).contains("UPDATE transaction_record", "updated_by=", "updated_at=", "deleted=1");
+        assertThat(boundSql.getParameterMappings()).extracting(org.apache.ibatis.mapping.ParameterMapping::getProperty)
+            .contains("updatedBy", "updatedAt", "id");
+        var parameters = configuration.newMetaObject(deleted);
+        for (var mapping : boundSql.getParameterMappings()) {
+            assertThat(parameters.getValue(mapping.getProperty())).as(mapping.getProperty()).isNotNull();
+        }
+        verify(transactionMapper, never()).deleteById(9L);
+    }
+
+    @Test
+    void unrelatedMemberCannotUpdateOrDeleteSelectedMembersRecord() {
+        selectedMemberRecord(31L);
+        userMapper.selectById(7L).setDisplayName("xi");
+        assertThatThrownBy(() -> service.update(9L, new CreateTransactionRequest(TransactionType.EXPENSE,
+            BigDecimal.ONE, LocalDate.of(2026, 10, 26), "餐饮", "xi", null, null, null)))
+            .isInstanceOfSatisfying(BusinessException.class, error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+        assertThatThrownBy(() -> service.delete(9L)).isInstanceOf(BusinessException.class);
+        verify(transactionMapper, never()).updateById(any(TransactionEntity.class));
+        verify(transactionMapper, never()).deleteById(9L);
+        verify(transactionMapper, never()).deleteById(any(TransactionEntity.class));
+    }
+
+    @Test
+    void selectedMemberCannotModifyRecordFromAnotherFamily() {
+        TransactionEntity record = entity(TransactionType.EXPENSE, "3.00");
+        record.setId(9L);
+        record.setFamilyId(32L);
+        record.setMemberName("zc");
+        when(transactionMapper.selectById(9L)).thenReturn(record);
+        assertThatThrownBy(() -> service.update(9L, new CreateTransactionRequest(TransactionType.EXPENSE,
+            BigDecimal.ONE, LocalDate.of(2026, 10, 26), "餐饮", "zc", null, null, null)))
+            .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> service.delete(9L)).isInstanceOf(BusinessException.class);
+        verify(transactionMapper, never()).updateById(any(TransactionEntity.class));
+        verify(transactionMapper, never()).deleteById(9L);
+        verify(transactionMapper, never()).deleteById(any(TransactionEntity.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void creatorAndAdministratorRetainWritePermission(Role role) {
+        TenantContext.set(new CurrentUser(7L, 31L, role, 0));
+        TransactionEntity record = entity(TransactionType.EXPENSE, "3.00");
+        record.setId(9L);
+        record.setMemberName("xi");
+        if (role == Role.SUPER_ADMIN) record.setCreatedBy(8L);
+        when(transactionMapper.selectById(9L)).thenReturn(record);
+        service.update(9L, new CreateTransactionRequest(TransactionType.EXPENSE, BigDecimal.ONE,
+            LocalDate.of(2026, 10, 26), "餐饮", "xi", null, null, null));
+        service.delete(9L);
+        verify(transactionMapper).updateById(any(TransactionEntity.class));
+        verify(transactionMapper).deleteById(record);
+        assertThat(record.getUpdatedBy()).isEqualTo(7L);
+        assertThat(record.getUpdatedAt()).isNotNull();
+        verify(userMapper, never()).selectById(any());
+    }
+
+    private void selectedMemberRecord(Long familyId) {
+        TransactionEntity record = entity(TransactionType.EXPENSE, "3.00");
+        record.setId(9L);
+        record.setFamilyId(familyId);
+        record.setCreatedBy(8L);
+        record.setMemberName("zc");
+        when(transactionMapper.selectById(9L)).thenReturn(record);
+        UserEntity user = new UserEntity();
+        user.setId(7L);
+        user.setDisplayName("zc");
+        when(userMapper.selectById(7L)).thenReturn(user);
     }
 
     private TransactionEntity captureInsertedEntity() {

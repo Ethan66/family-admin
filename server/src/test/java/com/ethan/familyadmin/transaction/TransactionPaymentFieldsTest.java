@@ -22,7 +22,7 @@ class TransactionPaymentFieldsTest {
 
     @BeforeEach void setUp() {
         TenantContext.set(new CurrentUser(7L, 31L, Role.FAMILY_MEMBER, 0));
-        service = new TransactionService(mapper, new TenantAccessGuard());
+        service = new TransactionService(mapper, new TenantAccessGuard(), mock(com.ethan.familyadmin.family.UserMapper.class));
     }
     @AfterEach void tearDown() { TenantContext.clear(); }
 

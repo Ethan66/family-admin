@@ -86,7 +86,9 @@ async function loadMembers(): Promise<void> {
 }
 
 function canManage(record: TransactionRecord): boolean {
-  return authStore.user ? canManageTransaction(authStore.user.role, authStore.user.id, record.createdBy) : false
+  if (!authStore.user) return false
+  return canManageTransaction(authStore.user.role, authStore.user.id, record.createdBy)
+    || (authStore.user.role === 'FAMILY_MEMBER' && record.memberName !== '' && record.memberName === authStore.user.displayName)
 }
 
 function formatAmount(record: TransactionRecord): string {

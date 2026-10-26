@@ -42,7 +42,7 @@ class TransactionPaymentPersistenceTest {
         TenantContext.set(new CurrentUser(7L, 31L, Role.FAMILY_MEMBER, 0));
         try (var session = factory.openSession(true)) {
             var mapper = session.getMapper(TransactionMapper.class);
-            var service = new TransactionService(mapper, new TenantAccessGuard());
+            var service = new TransactionService(mapper, new TenantAccessGuard(), org.mockito.Mockito.mock(com.ethan.familyadmin.family.UserMapper.class));
             var legacy = service.list(query(null, null)).records().getFirst();
             assertThat(legacy.bankCard()).isNull();
             assertThat(legacy.platform()).isNull();

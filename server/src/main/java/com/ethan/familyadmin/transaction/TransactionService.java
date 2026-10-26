@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ethan.familyadmin.common.api.PageResponse;
 import com.ethan.familyadmin.common.exception.BusinessException;
 import com.ethan.familyadmin.common.exception.ErrorCode;
+import com.ethan.familyadmin.family.UserMapper;
 import com.ethan.familyadmin.security.CurrentUser;
+import com.ethan.familyadmin.security.Role;
 import com.ethan.familyadmin.security.TenantAccessGuard;
 import com.ethan.familyadmin.security.TenantContext;
 import com.ethan.familyadmin.transaction.dto.TransactionAggregate;
@@ -21,16 +23,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class TransactionService {
 
     private final TransactionMapper transactionMapper;
     private final TenantAccessGuard accessGuard;
+    private final UserMapper userMapper;
 
-    public TransactionService(TransactionMapper transactionMapper, TenantAccessGuard accessGuard) {
+    public TransactionService(TransactionMapper transactionMapper, TenantAccessGuard accessGuard, UserMapper userMapper) {
         this.transactionMapper = transactionMapper;
         this.accessGuard = accessGuard;
+        this.userMapper = userMapper;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -85,7 +90,7 @@ public class TransactionService {
     public TransactionResponse update(Long id, CreateTransactionRequest request) {
         CurrentUser current = TenantContext.requiredUser();
         TransactionEntity entity = requireEntity(id);
-        accessGuard.requireWrite(current, entity);
+        requireTransactionWrite(current, entity);
         apply(entity, request);
         entity.setUpdatedBy(current.userId());
         entity.setUpdatedAt(LocalDateTime.now());
@@ -95,9 +100,23 @@ public class TransactionService {
 
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
+        CurrentUser current = TenantContext.requiredUser();
         TransactionEntity entity = requireEntity(id);
-        accessGuard.requireWrite(TenantContext.requiredUser(), entity);
-        transactionMapper.deleteById(id);
+        requireTransactionWrite(current, entity);
+        entity.setUpdatedBy(current.userId());
+        entity.setUpdatedAt(LocalDateTime.now());
+        transactionMapper.deleteById(entity);
+    }
+
+    /** 账目归属成员也可管理；先校验家庭，避免同名成员获得跨家庭权限。 */
+    private void requireTransactionWrite(CurrentUser current, TransactionEntity entity) {
+        if (accessGuard.canWrite(current, entity)) return;
+        if (current.role() == Role.FAMILY_MEMBER && Objects.equals(current.familyId(), entity.getFamilyId())
+            && entity.getMemberName() != null && !entity.getMemberName().isBlank()) {
+            var user = userMapper.selectById(current.userId());
+            if (user != null && entity.getMemberName().equals(user.getDisplayName())) return;
+        }
+        throw new BusinessException(ErrorCode.FORBIDDEN);
     }
 
     private LambdaQueryWrapper<TransactionEntity> buildQuery(TransactionQuery query) {
