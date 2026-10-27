@@ -38,7 +38,8 @@ class ApiClient:
         if response.status_code >= 500 or 300 <= response.status_code < 400:
             raise ApiError("后端异常或发生重定向；写入结果待核实，勿换编号重试")
         if response.status_code >= 400:
-            messages = {401: "账号登录失效", 403: "没有操作权限", 404: "接口或记录不存在"}
+            messages = {401: "账号登录失效", 403: "没有操作权限", 404: "接口或记录不存在",
+                        409: "请求发生冲突，请重新查询并确认后再提交"}
             # Only explicit client rejection proves that the write was not accepted.
             raise ApiError(messages.get(response.status_code, "后端拒绝请求，请检查输入"),
                            definite=response.status_code in {400, 401, 403, 404, 405, 409, 422, 429})

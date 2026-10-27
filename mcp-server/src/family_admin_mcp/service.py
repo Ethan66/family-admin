@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from .client import ApiError
+from .quick_notes import QuickNotesMixin
 
 
 def iso_date(value):
@@ -28,7 +29,7 @@ def date_range(start, end, max_days):
     return start, end
 
 
-class FamilyService:
+class FamilyService(QuickNotesMixin):
     def __init__(self, client, journal, today=None):
         self.client, self.journal = client, journal
         self.today = today or (lambda: datetime.now(ZoneInfo("Asia/Shanghai")).date())
@@ -60,22 +61,26 @@ class FamilyService:
         saved = self.journal.reserve(scope, request_id, f"{method} {path}", payload)
         if saved is not None:
             return saved
+        request_payload = payload
         if preflight is not None:
             try:
-                await preflight()
+                prepared = await preflight()
+                if prepared is not None:
+                    # Fingerprint the caller's stable intent, send the freshly merged versioned body.
+                    request_payload = prepared
             except BaseException:
                 # Only reads have happened: releasing here cannot duplicate a write.
                 self.journal.release(scope, request_id)
                 raise
         try:
-            data = await self.client.request(method, path, json=payload)
+            data = await self.client.request(method, path, json=request_payload)
         except ApiError as error:
             if error.definite:
                 self.journal.release(scope, request_id)
             raise
         if returns_record and (not isinstance(data, dict) or not isinstance(data.get("id"), int)):
             raise ApiError("后端未返回有效记录编号；写入结果待核实")
-        result = {"status": "saved", "request_id": request_id, "record": data if returns_record else payload}
+        result = {"status": "saved", "request_id": request_id, "record": data if returns_record else request_payload}
         # A crash before finish leaves a pending reservation, never an automatic second POST.
         self.journal.finish(scope, request_id, result)
         return result

@@ -32,13 +32,19 @@ async def test_stdio_discovery_and_tool_errors_are_valid_mcp(tmp_path):
             tools = {tool.name: tool for tool in (await session.list_tools()).tools}
             assert set(tools) == {"get_family_context", "add_transaction", "list_transactions",
                                  "create_daily_task", "list_daily_tasks", "complete_daily_task", "delete_daily_task", "delete_expense",
-                                 "list_courses", "record_course_attendance", "list_course_records", "list_passbooks"}
+                                 "list_courses", "record_course_attendance", "list_course_records", "list_passbooks",
+                                 "list_quick_notes", "create_quick_note", "update_quick_note", "delete_quick_note"}
             assert tools["get_family_context"].annotations.readOnlyHint is True
             assert tools["delete_daily_task"].annotations.destructiveHint is True
             assert tools["delete_expense"].annotations.destructiveHint is True
             assert tools["list_courses"].annotations.readOnlyHint is True
             assert tools["list_passbooks"].annotations.readOnlyHint is True
             assert tools["list_passbooks"].annotations.destructiveHint is False
+            assert tools["list_quick_notes"].annotations.readOnlyHint is True
+            assert tools["update_quick_note"].annotations.destructiveHint is True
+            assert tools["delete_quick_note"].annotations.destructiveHint is True
+            assert "version" in tools["update_quick_note"].inputSchema["required"]
+            assert "version" in tools["delete_quick_note"].inputSchema["required"]
             assert [name for name in tools if "passbook" in name] == ["list_passbooks"]
             assert tools["record_course_attendance"].inputSchema["properties"]["status"]["enum"] == ["ATTENDED", "LEAVE"]
             assert "request_id" in tools["add_transaction"].inputSchema["required"]
