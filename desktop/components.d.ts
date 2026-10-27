@@ -41,6 +41,7 @@ declare module 'vue' {
     ElTag: typeof import('element-plus/es')['ElTag']
     ElTimePicker: typeof import('element-plus/es')['ElTimePicker']
     LocalPhotoThumbnail: typeof import('./src/components/LocalPhotoThumbnail.vue')['default']
+    NoteImage: typeof import('./src/components/NoteImage.vue')['default']
     PhotoDirectoryTree: typeof import('./src/components/PhotoDirectoryTree.vue')['default']
     PhotoMoveDropdown: typeof import('./src/components/PhotoMoveDropdown.vue')['default']
     ResourceLibraryView: typeof import('./src/components/ResourceLibraryView.vue')['default']

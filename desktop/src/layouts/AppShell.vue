@@ -7,6 +7,7 @@ import {
   Wallet,
   DataAnalysis,
   Document,
+  EditPen,
   Film,
   FolderOpened,
   Grid,
@@ -99,6 +100,7 @@ onMounted(loadFamilies)
         <router-link to="/photos" title="照片管理" aria-label="照片管理" data-label="照片管理"><el-icon><picture-filled /></el-icon><span>照片管理</span></router-link>
         <router-link to="/movies" title="影片管理" aria-label="影片管理" data-label="影片管理"><el-icon><film /></el-icon><span>影片管理</span></router-link>
         <router-link to="/notes" title="学习笔记" aria-label="学习笔记" data-label="学习笔记"><el-icon><document /></el-icon><span>学习笔记</span></router-link>
+        <router-link to="/quick-notes" title="随身记" aria-label="随身记" data-label="随身记"><el-icon><edit-pen /></el-icon><span>随身记</span></router-link>
         <template v-if="authStore.isSuperAdmin">
           <div class="nav-separator"></div>
           <router-link to="/families" title="家庭管理" aria-label="家庭管理" data-label="家庭管理"><el-icon><user /></el-icon><span>家庭管理</span></router-link>
@@ -125,7 +127,7 @@ onMounted(loadFamilies)
     </aside>
 
     <section class="workspace">
-      <main class="page-content" :class="{ 'photo-page-content': route.name === 'photos' }"><router-view /></main>
+      <main class="page-content" :class="{ 'photo-page-content': route.name === 'photos', 'quick-notes-page-content': route.name === 'quick-notes' }"><router-view /></main>
     </section>
 
     <el-dialog v-model="isPasswordDialogVisible" title="修改密码" width="440px" destroy-on-close>
@@ -168,5 +170,6 @@ onMounted(loadFamilies)
 .workspace { flex:1; min-width:0; }
 .page-content { padding:24px 32px 40px; }
 .page-content.photo-page-content { padding:0; }
+.page-content.quick-notes-page-content { padding:0; }
 @media (max-width:1200px) { .page-content { padding:20px; } }
 </style>

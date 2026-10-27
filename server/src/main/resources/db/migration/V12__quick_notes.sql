@@ -1,0 +1,20 @@
+CREATE TABLE quick_note (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    family_id BIGINT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    body TEXT NOT NULL,
+    tags_json JSON NOT NULL,
+    image_ids_json JSON NOT NULL,
+    tasks_json JSON NOT NULL,
+    color VARCHAR(20) NOT NULL DEFAULT 'plain',
+    pinned BOOLEAN NOT NULL DEFAULT FALSE,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    version INT NOT NULL DEFAULT 0,
+    created_by BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_by BIGINT NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    INDEX idx_quick_note_family_updated (family_id, deleted, updated_at),
+    CONSTRAINT fk_quick_note_family FOREIGN KEY (family_id) REFERENCES family(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

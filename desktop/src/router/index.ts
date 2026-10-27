@@ -22,6 +22,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'photos', name: 'photos', component: () => import('@/views/PhotosView.vue'), meta: { title: '照片管理' } },
       { path: 'movies', name: 'movies', component: () => import('@/views/MoviesView.vue'), meta: { title: '影片管理' } },
       { path: 'notes', name: 'notes', component: () => import('@/views/NotesView.vue'), meta: { title: '学习笔记' } },
+      { path: 'quick-notes', name: 'quick-notes', component: () => import('@/views/QuickNotesView.vue'), meta: { title: '随身记' } },
       { path: 'exams', name: 'exams', component: () => import('@/views/ExamsView.vue'), meta: { title: '试卷管理' } },
       { path: 'families', name: 'families', component: () => import('@/views/FamiliesView.vue'), meta: { title: '家庭管理', superAdmin: true } },
       { path: 'audit', name: 'audit', component: () => import('@/views/AuditView.vue'), meta: { title: '审计日志', superAdmin: true } },
