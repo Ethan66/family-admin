@@ -59,8 +59,10 @@ public class CourseService {
     public RecordPage history(Long memberId, int page) {
         return history(memberId, page, null, null, null);
     }
+    /** 返回每条记课记录保存的课时快照；旧记录不使用当前余额回填。 */
     @Transactional(readOnly = true)
     public RecordPage history(Long memberId, int page, String title, String status, String month) {
+        // 筛选只改变记录范围；课时取记录自身快照，不能关联当前余额覆盖历史。
         if (page < 1) invalid();
         if (title != null && (title.isBlank() || title.length() > 120)) invalid();
         if (status != null && !Set.of("ATTENDED", "LEAVE").contains(status)) invalid();
@@ -77,14 +79,6 @@ public class CourseService {
             .lt(CourseRecordEntity::getCourseDate, selectedMonth.plusMonths(1).atDay(1));
         query.orderByDesc(CourseRecordEntity::getCourseDate).orderByDesc(CourseRecordEntity::getStartTime).orderByDesc(CourseRecordEntity::getId);
         var result = records.selectPage(new Page<CourseRecordEntity>(page, 20), query);
-        var currentBalances = balanceMapper.selectList(Wrappers.<CourseBalanceEntity>lambdaQuery()
-            .eq(CourseBalanceEntity::getFamilyId, familyId).eq(memberId != null, CourseBalanceEntity::getMemberId, memberId));
-        var bySubject = new HashMap<SubjectKey, CourseBalanceEntity>();
-        for (var balance : currentBalances) bySubject.put(new SubjectKey(balance.getMemberId(), balance.getTitle()), balance);
-        for (var row : result.getRecords()) {
-            var balance = bySubject.get(new SubjectKey(row.getMemberId(), row.getTitle()));
-            if (balance != null) { row.setRemainingLessons(balance.getRemainingLessons()); row.setTotalLessons(balance.getTotalLessons()); }
-        }
         return new RecordPage(result.getRecords(), result.getTotal());
     }
 
@@ -190,6 +184,7 @@ public class CourseService {
     private boolean occurs(CourseEntity course, LocalDate date) {
         return date.getDayOfWeek() == course.getCourseDate().getDayOfWeek();
     }
+    /** 在同一事务中处理出勤变化和余额快照，重复保存备注不改写原快照。 */
     @Transactional(rollbackFor = Exception.class)
     public void record(Long id, AttendancePayload payload) {
         var course = requireCourse(id, true);
@@ -211,10 +206,23 @@ public class CourseService {
         record.setAutomatic(false);
         record.setCreatedBy(TenantContext.requiredUser().userId()); record.setCreatedAt(LocalDateTime.now());
         record.setUpdatedBy(record.getCreatedBy()); record.setUpdatedAt(record.getCreatedAt());
-        records.upsert(record);
         int previous = existing != null && "ATTENDED".equals(existing.getStatus()) ? 1 : 0;
         int current = "ATTENDED".equals(payload.status()) ? 1 : 0;
-        if (previous != current) balanceMapper.adjust(course.getFamilyId(), existing == null ? course.getMemberId() : existing.getMemberId(),
-            existing == null ? course.getTitle() : existing.getTitle(), previous - current, actor.userId());
+        var balanceMember = existing == null ? course.getMemberId() : existing.getMemberId();
+        var balanceTitle = existing == null ? course.getTitle() : existing.getTitle();
+        if (previous != current) balanceMapper.adjust(course.getFamilyId(), balanceMember, balanceTitle, previous - current, actor.userId());
+        if (existing == null || previous != current) {
+            // 同科目不同课表共享余额；锁定余额行后读取最新值，避免并发或手工校准导致快照串值。
+            var balance = balanceMapper.selectOne(Wrappers.<CourseBalanceEntity>lambdaQuery()
+                .eq(CourseBalanceEntity::getFamilyId, course.getFamilyId()).eq(CourseBalanceEntity::getMemberId, balanceMember)
+                .eq(CourseBalanceEntity::getTitle, balanceTitle).last("FOR UPDATE"));
+            if (balance != null) {
+                record.setRemainingLessons(balance.getRemainingLessons()); record.setTotalLessons(balance.getTotalLessons());
+            }
+        } else {
+            // 包含无快照的旧记录：只修改备注时保留未知状态，不把今天的余额伪装成历史余额。
+            record.setRemainingLessons(existing.getRemainingLessons()); record.setTotalLessons(existing.getTotalLessons());
+        }
+        records.upsert(record);
     }
 }

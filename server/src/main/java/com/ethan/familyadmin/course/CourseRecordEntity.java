@@ -7,7 +7,6 @@ import lombok.Setter;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.math.BigDecimal;
-import com.baomidou.mybatisplus.annotation.TableField;
 
 @Getter @Setter @TableName("course_record")
 public class CourseRecordEntity extends BaseEntity implements TenantOwnedEntity {
@@ -22,8 +21,8 @@ public class CourseRecordEntity extends BaseEntity implements TenantOwnedEntity 
     private String status;
     private String note;
     private Boolean automatic;
-    @TableField(exist = false)
+    /** 本次记课处理后的剩余课时快照；旧记录或未设置余额时为空。 */
     private BigDecimal remainingLessons;
-    @TableField(exist = false)
+    /** 与剩余课时同时保存的总课时快照，之后调整余额不会覆盖。 */
     private BigDecimal totalLessons;
 }

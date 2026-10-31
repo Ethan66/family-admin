@@ -29,6 +29,12 @@ class CourseAutoAttendanceServiceTest {
         verify(records, never()).upsert(any()); verifyNoInteractions(balances);
     }
     @Test void afterEndTimeWritesAutomaticRecordAndDeductsOne() {
+        var balance = new CourseBalanceEntity(); balance.setRemainingLessons(new java.math.BigDecimal("12"));
+        balance.setTotalLessons(new java.math.BigDecimal("12"));
+        when(balances.adjust(1L, 4L, "英语", -1, 2L)).thenAnswer(invocation -> {
+            balance.setRemainingLessons(new java.math.BigDecimal("11")); return 1;
+        });
+        when(balances.selectOne(any())).thenReturn(balance);
         assertThat(service.complete(4L, date, enabled, date.atTime(15, 0))).isTrue();
         var record = org.mockito.ArgumentCaptor.forClass(CourseRecordEntity.class);
         verify(records).upsert(record.capture());
@@ -36,7 +42,13 @@ class CourseAutoAttendanceServiceTest {
         assertThat(record.getValue().getFamilyId()).isEqualTo(1L);
         assertThat(record.getValue().getCourseDate()).isEqualTo(date);
         assertThat(record.getValue().getStatus()).isEqualTo("ATTENDED");
+        assertThat(record.getValue().getRemainingLessons()).isEqualByComparingTo("11");
+        assertThat(record.getValue().getTotalLessons()).isEqualByComparingTo("12");
         verify(balances).adjust(1L, 4L, "英语", -1, 2L);
+        var order = inOrder(balances, records);
+        order.verify(balances).adjust(1L, 4L, "英语", -1, 2L);
+        order.verify(balances).selectOne(any());
+        order.verify(records).upsert(any());
     }
     @Test void bothManualAttendanceAndLeaveAreSkipped() {
         for (var status : new String[]{"ATTENDED", "LEAVE"}) {

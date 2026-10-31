@@ -51,6 +51,13 @@ class CourseAutoAttendancePersistenceTest {
         assertThatThrownBy(() -> tx.execute(status -> failedWorker.complete(id,date,enabled,now))).isInstanceOf(IllegalStateException.class);
         assertThat(records.selectCount(Wrappers.<CourseRecordEntity>lambdaQuery().eq(CourseRecordEntity::getCourseId,id))).isZero();
         assertThat(balance(balances,"自动英语")).isEqualByComparingTo("5");
+        // 扣减已成功而保存记录失败时，余额和快照必须一起回滚。
+        var failedRecords=mock(CourseRecordMapper.class);
+        doThrow(new IllegalStateException("simulated snapshot write failure")).when(failedRecords).upsert(any());
+        var failedSnapshotWorker=new CourseAutoAttendanceService(courses,failedRecords,balances);
+        assertThatThrownBy(() -> tx.execute(status -> failedSnapshotWorker.complete(id,date,enabled,now))).isInstanceOf(IllegalStateException.class);
+        assertThat(balance(balances,"自动英语")).isEqualByComparingTo("5");
+        assertThat(records.selectCount(Wrappers.<CourseRecordEntity>lambdaQuery().eq(CourseRecordEntity::getCourseId,id))).isZero();
         try(var executor=Executors.newFixedThreadPool(2)) {
             var start=new CountDownLatch(1);
             Callable<Boolean> task=() -> { start.await(); return tx.execute(status -> worker.complete(id,date,enabled,now)); };
@@ -60,6 +67,8 @@ class CourseAutoAttendancePersistenceTest {
         assertThat(balance(balances,"自动英语")).isEqualByComparingTo("4");
         var automatic=records.selectOne(Wrappers.<CourseRecordEntity>lambdaQuery().eq(CourseRecordEntity::getCourseId,id));
         assertThat(automatic.getAutomatic()).isTrue();
+        assertThat(automatic.getRemainingLessons()).isEqualByComparingTo("4");
+        assertThat(automatic.getTotalLessons()).isEqualByComparingTo("5");
         assertThat(tx.<Boolean>execute(status -> worker.complete(id,date,enabled,now)).booleanValue()).isFalse();
         assertThat(balance(balances,"自动英语")).isEqualByComparingTo("4");
 
@@ -75,6 +84,22 @@ class CourseAutoAttendancePersistenceTest {
         }
         assertThat(records.selectCount(Wrappers.<CourseRecordEntity>lambdaQuery().eq(CourseRecordEntity::getCourseId,raceId))).isEqualTo(1);
         assertThat(balance(balances,"并发英语")).isEqualByComparingTo("4");
+        var manualAutomaticRecord=records.selectOne(Wrappers.<CourseRecordEntity>lambdaQuery().eq(CourseRecordEntity::getCourseId,raceId));
+        assertThat(manualAutomaticRecord.getRemainingLessons()).isEqualByComparingTo("4");
+
+        // 不同课程 ID 共享同一科目余额，两个快照必须分别对应扣减后的 4 和 3。
+        var subjectFirst=create(courses,balances,"共享英语",date);
+        var subjectSecond=create(courses,balances,"共享英语",date);
+        try(var executor=Executors.newFixedThreadPool(2)) {
+            var start=new CountDownLatch(1);
+            var first=executor.submit(() -> { start.await(); return tx.execute(status -> worker.complete(subjectFirst,date,enabled,now)); });
+            var second=executor.submit(() -> { start.await(); return tx.execute(status -> worker.complete(subjectSecond,date,enabled,now)); });
+            start.countDown(); assertThat(first.get(15,TimeUnit.SECONDS)).isTrue(); assertThat(second.get(15,TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(balance(balances,"共享英语")).isEqualByComparingTo("3");
+        var snapshots=records.selectList(Wrappers.<CourseRecordEntity>lambdaQuery().in(CourseRecordEntity::getCourseId,List.of(subjectFirst,subjectSecond)));
+        assertThat(snapshots).extracting(row -> row.getRemainingLessons().intValueExact()).containsExactlyInAnyOrder(4,3);
+        assertThat(snapshots).allSatisfy(row -> assertThat(row.getTotalLessons()).isEqualByComparingTo("5"));
         create(courses,balances,"任务英语",date);
         states.initialize(enabled);
         var job=new CourseAutoAttendanceJob(courses,states,worker,

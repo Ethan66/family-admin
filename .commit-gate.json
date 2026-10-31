@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "financeExcludePatterns": [
+    ".githooks/**",
+    "**/commit-gate/**",
+    "commit_gate.py",
+    "**/commit_gate.py",
+    "server/src/main/java/com/ethan/familyadmin/course/CourseService.java",
+    "server/src/main/java/com/ethan/familyadmin/course/CourseAutoAttendanceService.java"
+  ],
+  "financeExcludeReasons": {
+    "server/src/main/java/com/ethan/familyadmin/course/CourseService.java": "course_balance 仅保存教学课时计数，非资金余额；不涉及支付、退款、账务流水或可兑现权益。通用安全和注释检查照常执行。",
+    "server/src/main/java/com/ethan/familyadmin/course/CourseAutoAttendanceService.java": "自动记课仅扣减教学课次并保存快照，不调用资金入口；本次保持原有扣课规则，已验证并发、幂等及事务回滚。"
+  }
+}

@@ -32,8 +32,15 @@ public class CourseAutoAttendanceService {
         record.setStatus("ATTENDED"); record.setNote("课程结束后自动记录"); record.setAutomatic(true);
         record.setCreatedBy(course.getCreatedBy()); record.setUpdatedBy(course.getCreatedBy());
         record.setCreatedAt(now); record.setUpdatedAt(now);
-        records.upsert(record);
         balances.adjust(course.getFamilyId(),course.getMemberId(),course.getTitle(),-1,course.getCreatedBy());
+        // 与手工记课保持相同的事务及科目行锁，保存扣减后的余额而非查询时的当前余额。
+        var balance=balances.selectOne(Wrappers.<CourseBalanceEntity>lambdaQuery()
+            .eq(CourseBalanceEntity::getFamilyId,course.getFamilyId()).eq(CourseBalanceEntity::getMemberId,course.getMemberId())
+            .eq(CourseBalanceEntity::getTitle,course.getTitle()).last("FOR UPDATE"));
+        if (balance!=null) {
+            record.setRemainingLessons(balance.getRemainingLessons()); record.setTotalLessons(balance.getTotalLessons());
+        }
+        records.upsert(record);
         return true;
     }
 }

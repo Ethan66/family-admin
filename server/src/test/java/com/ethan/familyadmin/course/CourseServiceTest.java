@@ -43,22 +43,86 @@ class CourseServiceTest {
         assertThat(result.getFirst().date().getDayOfWeek()).isEqualTo(course.getCourseDate().getDayOfWeek());
         assertThat(result).extracting(CourseOccurrence::status).containsOnly("PENDING");
     }
-    @Test void historyAppliesSubjectStatusAndMonthBeforePaginationAndIncludesCurrentLessonCounts() {
+    @Test void historyAppliesFiltersAndPreservesStoredSnapshotsAndUnknownLegacyBalances() {
         var row = new CourseRecordEntity(); row.setMemberId(7L); row.setTitle("英语");
+        row.setRemainingLessons(new java.math.BigDecimal("11")); row.setTotalLessons(new java.math.BigDecimal("12"));
+        var legacy = new CourseRecordEntity(); legacy.setMemberId(7L); legacy.setTitle("英语");
         var balance = new CourseBalanceEntity(); balance.setMemberId(7L); balance.setTitle("英语");
         balance.setRemainingLessons(new java.math.BigDecimal("10")); balance.setTotalLessons(new java.math.BigDecimal("40"));
-        when(balances.selectList(any())).thenReturn(List.of(balance));
+        lenient().when(balances.selectList(any())).thenReturn(List.of(balance));
         when(records.selectPage(any(), any())).thenAnswer(invocation -> {
             var query = (com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<?>) invocation.getArgument(1);
             assertThat(query.getSqlSegment()).contains("family_id =", "title =", "status =", "course_date >=", "course_date <");
             assertThat(query.getParamNameValuePairs().values()).contains(31L, "英语", "ATTENDED", LocalDate.of(2026, 10, 1), LocalDate.of(2026, 11, 1));
             var page = (com.baomidou.mybatisplus.extension.plugins.pagination.Page<CourseRecordEntity>) invocation.getArgument(0);
-            return page.setRecords(List.of(row)).setTotal(1);
+            return page.setRecords(List.of(row, legacy)).setTotal(2);
         });
         var result = service.history(null, 1, "英语", "ATTENDED", "2026-10");
-        assertThat(result.total()).isEqualTo(1);
-        assertThat(result.records().getFirst().getRemainingLessons()).isEqualByComparingTo("10");
-        assertThat(result.records().getFirst().getTotalLessons()).isEqualByComparingTo("40");
+        assertThat(result.total()).isEqualTo(2);
+        assertThat(result.records().getFirst().getRemainingLessons()).isEqualByComparingTo("11");
+        assertThat(result.records().getFirst().getTotalLessons()).isEqualByComparingTo("12");
+        assertThat(result.records().getLast().getRemainingLessons()).isNull();
+        assertThat(result.records().getLast().getTotalLessons()).isNull();
+        verify(balances, never()).selectList(any());
+    }
+
+    @Test void newAttendanceStoresTheBalanceAfterDeductionUnderSubjectLock() {
+        var course = course(); course.setCourseDate(LocalDate.now());
+        when(mapper.selectById(1L)).thenReturn(course);
+        var balance = new CourseBalanceEntity(); balance.setRemainingLessons(new java.math.BigDecimal("12"));
+        balance.setTotalLessons(new java.math.BigDecimal("12"));
+        when(balances.adjust(31L, 7L, "英语", -1, 7L)).thenAnswer(invocation -> {
+            balance.setRemainingLessons(new java.math.BigDecimal("11")); return 1;
+        });
+        when(balances.selectOne(any())).thenAnswer(invocation -> {
+            var query = (com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<?>) invocation.getArgument(0);
+            assertThat(query.getSqlSegment()).contains("family_id =", "member_id =", "title =", "FOR UPDATE");
+            return balance;
+        });
+        service.record(1L, new AttendancePayload(LocalDate.now(), "ATTENDED", "首次记录"));
+        var record = org.mockito.ArgumentCaptor.forClass(CourseRecordEntity.class);
+        verify(records).upsert(record.capture());
+        assertThat(record.getValue().getRemainingLessons()).isEqualByComparingTo("11");
+        assertThat(record.getValue().getTotalLessons()).isEqualByComparingTo("12");
+        var order = inOrder(balances, records);
+        order.verify(balances).adjust(31L, 7L, "英语", -1, 7L);
+        order.verify(balances).selectOne(any());
+        order.verify(records).upsert(any());
+    }
+
+    @Test void noteOnlyEditsKeepTheOriginalSnapshotAfterBalanceRecalibration() {
+        var course = course(); course.setCourseDate(LocalDate.now());
+        when(mapper.selectById(1L)).thenReturn(course);
+        var saved = new CourseRecordEntity(); saved.setMemberId(7L); saved.setTitle("英语"); saved.setStatus("ATTENDED");
+        saved.setRemainingLessons(new java.math.BigDecimal("11")); saved.setTotalLessons(new java.math.BigDecimal("12"));
+        when(records.selectOne(any())).thenReturn(saved);
+        service.record(1L, new AttendancePayload(LocalDate.now(), "ATTENDED", "只更新备注"));
+        var record = org.mockito.ArgumentCaptor.forClass(CourseRecordEntity.class);
+        verify(records).upsert(record.capture());
+        assertThat(record.getValue().getRemainingLessons()).isEqualByComparingTo("11");
+        assertThat(record.getValue().getTotalLessons()).isEqualByComparingTo("12");
+        verifyNoInteractions(balances);
+    }
+
+    @Test void leaveRefundStoresNewSnapshotForTheOriginalSubjectAfterCourseRename() {
+        var course = course(); course.setCourseDate(LocalDate.now()); course.setTitle("英语新版");
+        when(mapper.selectById(1L)).thenReturn(course);
+        var saved = new CourseRecordEntity(); saved.setMemberId(7L); saved.setTitle("英语"); saved.setStatus("ATTENDED");
+        when(records.selectOne(any())).thenReturn(saved);
+        var balance = new CourseBalanceEntity(); balance.setRemainingLessons(new java.math.BigDecimal("21"));
+        balance.setTotalLessons(new java.math.BigDecimal("24"));
+        when(balances.selectOne(any())).thenAnswer(invocation -> {
+            var query = (com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<?>) invocation.getArgument(0);
+            query.getSqlSegment();
+            assertThat(query.getParamNameValuePairs()).containsValue("英语").doesNotContainValue("英语新版");
+            return balance;
+        });
+        service.record(1L, new AttendancePayload(LocalDate.now(), "LEAVE", "请假退回"));
+        var record = org.mockito.ArgumentCaptor.forClass(CourseRecordEntity.class);
+        verify(records).upsert(record.capture());
+        verify(balances).adjust(31L, 7L, "英语", 1, 7L);
+        assertThat(record.getValue().getRemainingLessons()).isEqualByComparingTo("21");
+        assertThat(record.getValue().getTotalLessons()).isEqualByComparingTo("24");
     }
     @Test void rejectsInvalidHistoryMonthAndStatus() {
         assertThatThrownBy(() -> service.history(null, 1, null, null, "2026-13")).isInstanceOf(BusinessException.class);
