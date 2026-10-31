@@ -27,11 +27,13 @@ public class PassbookService {
         this.guard = guard;
     }
 
+    /** 使用默认存款日期排序查询当前账号可见的存折。 */
     @Transactional(readOnly = true)
     public PassbookPageResponse list(Long memberId, LocalDate startDate, LocalDate endDate, long page, long pageSize) {
         return list(memberId, startDate, endDate, page, pageSize, PassbookSort.DEPOSIT_DATE_DESC);
     }
 
+    /** 按当前账号的可见范围分页查询，合计仅包含可见存折。 */
     @Transactional(readOnly = true)
     public PassbookPageResponse list(Long memberId, LocalDate startDate, LocalDate endDate, long page, long pageSize, PassbookSort sort) {
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
@@ -39,7 +41,8 @@ public class PassbookService {
         }
         long current = Math.max(1, page);
         long size = Math.min(100, Math.max(1, pageSize));
-        var query = buildQuery(memberId, startDate, endDate);
+        boolean canAccessZc = canAccessZc();
+        var query = buildQuery(memberId, startDate, endDate, canAccessZc);
         // 到期日只由存款日和年限推导；静态 SQL 白名单确保全量排序发生在分页之前。
         switch (sort) {
             case DEPOSIT_DATE_DESC -> query.orderByDesc(PassbookEntity::getDepositDate).orderByDesc(PassbookEntity::getId);
@@ -48,21 +51,24 @@ public class PassbookService {
             case MATURITY_DATE_DESC -> query.last("ORDER BY DATE_ADD(deposit_date, INTERVAL term_years YEAR) DESC, id DESC");
         }
         var result = mapper.selectPage(Page.of(current, size), query);
-        var totals = mapper.selectTotals(buildQuery(memberId, startDate, endDate));
+        var totals = mapper.selectTotals(buildQuery(memberId, startDate, endDate, canAccessZc));
         return new PassbookPageResponse(result.getRecords().stream().map(this::response).toList(), result.getTotal(), current, size,
             totals.totalPrincipal(), totals.totalAmount());
     }
 
     /** 分页与全量合计共用筛选条件；自定义统计 SQL 必须显式排除逻辑删除记录。 */
-    private LambdaQueryWrapper<PassbookEntity> buildQuery(Long memberId, LocalDate startDate, LocalDate endDate) {
+    private LambdaQueryWrapper<PassbookEntity> buildQuery(Long memberId, LocalDate startDate, LocalDate endDate, boolean canAccessZc) {
         return Wrappers.<PassbookEntity>lambdaQuery()
             .eq(PassbookEntity::getFamilyId, family())
             .eq(PassbookEntity::getDeleted, 0)
+            // 按所属账号隐藏而非创建者；同一条件覆盖分页计数与金额合计，防止统计泄露。
+            .notInSql(!canAccessZc, PassbookEntity::getMemberId, "SELECT id FROM sys_user WHERE username = 'zc'")
             .eq(memberId != null, PassbookEntity::getMemberId, memberId)
             .ge(startDate != null, PassbookEntity::getDepositDate, startDate)
             .le(endDate != null, PassbookEntity::getDepositDate, endDate);
     }
 
+    /** 创建存折前校验当前家庭、所属成员及受保护账号权限。 */
     @Transactional(rollbackFor = Exception.class)
     public PassbookResponse create(PassbookPayload payload) {
         var actor = TenantContext.requiredUser();
@@ -77,6 +83,7 @@ public class PassbookService {
         return response(entity);
     }
 
+    /** 修改存折时同时检查原归属和新归属的访问权限。 */
     @Transactional(rollbackFor = Exception.class)
     public PassbookResponse update(Long id, PassbookPayload payload) {
         var entity = requireEntity(id);
@@ -86,6 +93,7 @@ public class PassbookService {
         return response(entity);
     }
 
+    /** 仅允许具备可见权限及既有写权限的账号删除存折。 */
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         var entity = requireEntity(id);
@@ -96,17 +104,34 @@ public class PassbookService {
         mapper.deleteById(entity);
     }
 
+    /** 沿用家庭上下文约束，隐私白名单不授予跨家庭权限。 */
     private Long family() {
         guard.requireBusinessCreate(TenantContext.requiredUser());
         return TenantContext.requiredFamilyId();
     }
 
+    /** 查询写操作目标时先校验家庭与隐私边界，避免按 ID 绕过列表限制。 */
     private PassbookEntity requireEntity(Long id) {
         var entity = mapper.selectById(id);
         if (entity == null || !Objects.equals(entity.getFamilyId(), family())) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
+        var owner = users.selectById(entity.getMemberId());
+        if (owner == null || isZc(owner) && !canAccessZc()) {
+            // 不向未授权账号透露受保护存折是否存在，创建者权限也不能绕过。
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
         return entity;
+    }
+
+    /** 仅放行明确指定的两个账号，不把权限扩大到其他超级管理员。 */
+    private boolean canAccessZc() {
+        var actor = users.selectById(TenantContext.requiredUser().userId());
+        return actor != null && (isZc(actor) || "admin".equalsIgnoreCase(actor.getUsername()));
+    }
+
+    private boolean isZc(UserEntity user) {
+        return "zc".equalsIgnoreCase(user.getUsername());
     }
 
     private void apply(PassbookEntity entity, PassbookPayload payload) {
@@ -118,6 +143,10 @@ public class PassbookService {
         if (user == null || !"ACTIVE".equals(user.getStatus()) || members.selectCount(Wrappers.<FamilyMemberEntity>lambdaQuery()
             .eq(FamilyMemberEntity::getFamilyId, entity.getFamilyId()).eq(FamilyMemberEntity::getUserId, payload.memberId())) == 0) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "请选择当前家庭的有效成员");
+        }
+        // 同时校验新归属，阻止普通记录被改归 zc，或替 zc 创建记录后读取响应。
+        if (isZc(user) && !canAccessZc()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         entity.setMemberId(payload.memberId());
         entity.setMemberName(user.getDisplayName());
