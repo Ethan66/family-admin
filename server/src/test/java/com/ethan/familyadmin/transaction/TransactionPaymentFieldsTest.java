@@ -26,6 +26,20 @@ class TransactionPaymentFieldsTest {
     }
     @AfterEach void tearDown() { TenantContext.clear(); }
 
+    @Test void expenseAcceptsJdBaitiaoAndPreservesItIndependentlyFromPlatform() {
+        var request = new CreateTransactionRequest(TransactionType.EXPENSE, new BigDecimal("100"),
+            LocalDate.of(2026, 11, 1), "购物", "爸爸", null, "京东白条", "京东");
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            assertThat(factory.getValidator().validate(request)).isEmpty();
+        }
+        var response = service.create(request);
+        var captor = org.mockito.ArgumentCaptor.forClass(TransactionEntity.class);
+        verify(mapper).insert(captor.capture());
+        assertThat(captor.getValue().getBankCard()).isEqualTo("京东白条");
+        assertThat(response.bankCard()).isEqualTo("京东白条");
+        assertThat(response.platform()).isEqualTo("京东");
+    }
+
     @Test void createPreservesSelectionsInStorageAndResponse() {
         var response = service.create(request("招商", "京东"));
         var captor = org.mockito.ArgumentCaptor.forClass(TransactionEntity.class);
@@ -60,7 +74,7 @@ class TransactionPaymentFieldsTest {
             var validator = factory.getValidator();
             assertThat(validator.validate(request(null, null))).isEmpty();
             assertThat(validator.validate(request("", ""))).isEmpty();
-            for (var bank : new String[]{"工商", "农业", "交通", "光大", "招商", "支付宝", "微信"}) {
+            for (var bank : new String[]{"工商", "农业", "交通", "光大", "招商", "支付宝", "微信", "京东白条"}) {
                 assertThat(validator.validate(request(bank, "淘宝"))).isEmpty();
             }
             for (var platform : new String[]{"支付宝", "微信", "京东", "美团", "拼多多", "淘宝", "抖音"}) {

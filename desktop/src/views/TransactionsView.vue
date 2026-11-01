@@ -24,7 +24,7 @@ const transactionForm = reactive<TransactionPayload>({ type: 'EXPENSE', amount: 
 const options = {
   filterTypes: [{ label: '全部', value: '' }, { label: '收入', value: 'INCOME' }, { label: '支出', value: 'EXPENSE' }],
   types: [{ label: '收入', value: 'INCOME' }, { label: '支出', value: 'EXPENSE' }],
-  bankCards: ['工商', '农业', '交通', '光大', '招商', '支付宝', '微信'],
+  bankCards: ['工商', '农业', '交通', '光大', '招商', '支付宝', '微信', '京东白条'],
   platforms: ['支付宝', '微信', '京东', '美团', '拼多多', '淘宝', '抖音'],
   categories: ['餐饮', '交通', '教育', '住房', '医疗', '娱乐', '工资', '其他'],
 }

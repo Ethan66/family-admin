@@ -36,7 +36,7 @@ describe('transaction payment fields', () => {
     const tempWrapper = mountView()
     await tempWrapper.find('[data-testid="create-transaction"]').trigger('click')
     for (const [tempField, tempExpected] of [
-      ['bank-card', ['工商', '农业', '交通', '光大', '招商', '支付宝', '微信']],
+      ['bank-card', ['工商', '农业', '交通', '光大', '招商', '支付宝', '微信', '京东白条']],
       ['platform', ['支付宝', '微信', '京东', '美团', '拼多多', '淘宝', '抖音']],
     ] as const) {
       for (const tempSuffix of ['', '-filter']) {

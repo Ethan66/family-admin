@@ -128,7 +128,7 @@ async def test_transaction_writes_bank_card_and_platform_separately(setup, kind)
 
 
 @pytest.mark.parametrize("changes,key,value", [
-    ({"bank_card": card}, "bankCard", card) for card in ["工商", "农业", "交通", "光大", "招商", "支付宝", "微信"]
+    ({"bank_card": card}, "bankCard", card) for card in ["工商", "农业", "交通", "光大", "招商", "支付宝", "微信", "京东白条"]
 ] + [({"platform": platform}, "platform", platform) for platform in ["支付宝", "微信", "京东", "美团", "拼多多", "淘宝", "抖音"]])
 async def test_supported_transaction_payment_options(setup, changes, key, value):
     service, backend, _ = setup

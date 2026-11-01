@@ -99,7 +99,7 @@ class FamilyService(QuickNotesMixin):
                    "category": text(category, "分类", 50), "transactionDate": iso_date(transaction_date).isoformat(),
                    "note": text(note, "备注", 500, required=False)}
         for key, option, label, allowed in (
-            ("bankCard", bank_card, "银行卡", {"工商", "农业", "交通", "光大", "招商", "支付宝", "微信"}),
+            ("bankCard", bank_card, "银行卡", {"工商", "农业", "交通", "光大", "招商", "支付宝", "微信", "京东白条"}),
             ("platform", platform, "消费平台", {"支付宝", "微信", "京东", "美团", "拼多多", "淘宝", "抖音"}),
         ):
             if option is None:
