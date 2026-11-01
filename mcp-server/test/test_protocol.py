@@ -51,6 +51,10 @@ async def test_stdio_discovery_and_tool_errors_are_valid_mcp(tmp_path):
             payment_schema = tools["add_transaction"].inputSchema["properties"]
             assert "bank_card" in payment_schema and "platform" in payment_schema
             assert "bank_card" not in tools["add_transaction"].inputSchema["required"]
+            bank_options = next(option["enum"] for option in payment_schema["bank_card"]["anyOf"] if option.get("type") == "string")
+            platform_options = next(option["enum"] for option in payment_schema["platform"]["anyOf"] if option.get("type") == "string")
+            assert "京东白条" in bank_options
+            assert "京东白条" not in platform_options
             invalid = await session.call_tool("add_transaction", {
                 "request_id": "test:0", "amount": "-1", "category": "餐饮", "transaction_date": "2026-10-24",
             })

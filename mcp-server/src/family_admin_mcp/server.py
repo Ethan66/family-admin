@@ -72,7 +72,7 @@ def build_server(settings: Settings) -> FastMCP:
     async def add_transaction(request_id: str, amount: str, category: str, transaction_date: str,
                               ctx: Context, type: Literal["INCOME", "EXPENSE"] = "EXPENSE",
                               member_id: int | None = None, note: str = "",
-                              bank_card: Literal["", "工商", "农业", "交通", "光大", "招商", "支付宝", "微信"] | None = None,
+                              bank_card: Literal["", "工商", "农业", "交通", "光大", "招商", "支付宝", "微信", "京东白条"] | None = None,
                               platform: Literal["", "支付宝", "微信", "京东", "美团", "拼多多", "淘宝", "抖音"] | None = None) -> dict:
         """新增一笔人民币收支。amount 为精确金额字符串，日期 YYYY-MM-DD，使用服务端默认成员。
 
