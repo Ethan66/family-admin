@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:file:/app/config/course-notifications.yml
   application:
     name: family-admin-server
   datasource:

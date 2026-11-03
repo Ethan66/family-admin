@@ -1,0 +1,28 @@
+CREATE TABLE course_notification (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    dedup_key VARCHAR(191) CHARACTER SET ascii NOT NULL COMMENT '事件与收件人的稳定去重键',
+    family_id BIGINT NOT NULL,
+    recipient_user_id BIGINT NOT NULL,
+    destination_key VARCHAR(32) CHARACTER SET ascii NOT NULL COMMENT '服务端固定通道别名，不保存签名密钥',
+    kind VARCHAR(16) CHARACTER SET ascii NOT NULL COMMENT 'UPCOMING 或 ATTENDANCE',
+    reference_id BIGINT NOT NULL COMMENT '课程或自动上课记录编号',
+    course_date DATE NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    content TEXT NOT NULL,
+    status VARCHAR(16) CHARACTER SET ascii NOT NULL DEFAULT 'PENDING',
+    attempts INT NOT NULL DEFAULT 0,
+    next_attempt_at DATETIME NOT NULL,
+    lease_until DATETIME NULL,
+    last_error VARCHAR(64) NULL COMMENT '仅保存错误分类，不保存口令或接口原文',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    row_modified_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+        ON UPDATE CURRENT_TIMESTAMP(6) COMMENT '行最后修改时间，由数据库自动维护，业务代码禁止写入',
+    UNIQUE KEY uk_course_notification_event (dedup_key),
+    INDEX idx_course_notification_pending (status, next_attempt_at, id),
+    INDEX idx_course_notification_lease (status, lease_until, id),
+    FOREIGN KEY (family_id) REFERENCES family(id),
+    FOREIGN KEY (recipient_user_id) REFERENCES sys_user(id),
+    CHECK (kind IN ('UPCOMING', 'ATTENDANCE')),
+    CHECK (status IN ('PENDING', 'SENDING', 'SENT', 'FAILED', 'CANCELLED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

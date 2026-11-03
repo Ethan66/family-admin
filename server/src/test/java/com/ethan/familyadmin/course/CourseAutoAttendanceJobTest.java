@@ -11,8 +11,23 @@ class CourseAutoAttendanceJobTest {
     final CourseMapper courses = mock(CourseMapper.class);
     final CourseAutoAttendanceStateMapper states = mock(CourseAutoAttendanceStateMapper.class);
     final CourseAutoAttendanceService worker = mock(CourseAutoAttendanceService.class);
+    final com.ethan.familyadmin.notification.CourseNotificationService notifications = mock(com.ethan.familyadmin.notification.CourseNotificationService.class);
     final Clock clock = Clock.fixed(Instant.parse("2026-10-25T07:01:00Z"), ZoneId.of("Asia/Shanghai"));
-    final CourseAutoAttendanceJob job = new CourseAutoAttendanceJob(courses, states, worker, clock);
+    final CourseAutoAttendanceJob job = new CourseAutoAttendanceJob(courses, states, worker, clock, notifications);
+
+    @Test void successfulCommitTriggersNotificationButEnqueueFailureDoesNotBlockCheckpoint() {
+        var from=LocalDateTime.of(2026,10,25,14,0);
+        when(states.read()).thenReturn(new CourseAutoAttendanceStateMapper.State(from,from));
+        var course=new CourseEntity(); course.setId(4L); course.setCourseDate(LocalDate.of(2000,1,9)); course.setEndTime(LocalTime.of(15,0));
+        when(courses.autoAttendanceCandidates()).thenReturn(List.of(course));
+        when(worker.complete(any(),any(),any(),any())).thenReturn(true);
+        doThrow(new IllegalStateException("queue unavailable")).when(notifications).afterAutomaticAttendance(any(),any());
+        job.run();
+        var order=inOrder(worker,notifications,states);
+        order.verify(worker).complete(any(),any(),any(),any());
+        order.verify(notifications).afterAutomaticAttendance(4L,LocalDate.of(2026,10,25));
+        order.verify(states).advance(LocalDateTime.of(2026,10,25,15,1));
+    }
     @Test void scheduleRunsHourlyFromNineThroughNineteen() throws Exception {
         var schedules=CourseAutoAttendanceJob.class.getMethod("run").getAnnotationsByType(org.springframework.scheduling.annotation.Scheduled.class);
         var expressions=new java.util.ArrayList<org.springframework.scheduling.support.CronExpression>();
@@ -50,5 +65,6 @@ class CourseAutoAttendanceJobTest {
         when(worker.complete(any(), any(), any(), any())).thenThrow(new IllegalStateException("test failure"));
         job.run();
         verify(states, never()).advance(any());
+        verifyNoInteractions(notifications);
     }
 }

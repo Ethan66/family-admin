@@ -103,13 +103,13 @@ class CourseAutoAttendancePersistenceTest {
         create(courses,balances,"任务英语",date);
         states.initialize(enabled);
         var job=new CourseAutoAttendanceJob(courses,states,worker,
-            Clock.fixed(now.atZone(ZoneId.of("Asia/Shanghai")).toInstant(),ZoneId.of("Asia/Shanghai")));
+            Clock.fixed(now.atZone(ZoneId.of("Asia/Shanghai")).toInstant(),ZoneId.of("Asia/Shanghai")),mock(com.ethan.familyadmin.notification.CourseNotificationService.class));
         // Job 通过 Spring 事务代理调用 worker，验证其实际扫描及检查点。
         var proxy=new org.springframework.aop.framework.ProxyFactory(worker);
         proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(
             new DataSourceTransactionManager(dataSource),new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
         job=new CourseAutoAttendanceJob(courses,states,(CourseAutoAttendanceService)proxy.getProxy(),
-            Clock.fixed(now.atZone(ZoneId.of("Asia/Shanghai")).toInstant(),ZoneId.of("Asia/Shanghai")));
+            Clock.fixed(now.atZone(ZoneId.of("Asia/Shanghai")).toInstant(),ZoneId.of("Asia/Shanghai")),mock(com.ethan.familyadmin.notification.CourseNotificationService.class));
         job.run(); job.run();
         assertThat(states.read().scannedThrough()).isEqualTo(now);
         assertThat(balance(balances,"任务英语")).isEqualByComparingTo("4");

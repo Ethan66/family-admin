@@ -1,0 +1,20 @@
+# 复制到原后端容器 /app/config/course-notifications.yml 后填写；不要提交真实密钥。
+# enabled-from 必须使用正式启用时点，防止推送历史自动记课记录。
+family-admin:
+  course-notifications:
+    enabled: false
+    enabled-from: null
+    lead-minutes: 30
+    batch-size: 10
+    max-attempts: 5
+    destinations:
+      - key: zc
+        family-id: 1
+        user-id: 2
+        url: http://172.18.0.1:8644/webhooks/family-course
+        secret: ""
+      - key: xi
+        family-id: 1
+        user-id: 3
+        url: http://172.18.0.1:8645/webhooks/family-course
+        secret: ""

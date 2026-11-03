@@ -42,7 +42,7 @@ class CoursePersistenceTest {
                 """);
             sql.executeUpdate("INSERT INTO course_balance(family_id,member_id,title,remaining_lessons,total_lessons,created_by,updated_by) VALUES(831,807,'英语',10,12,807,807)");
         }
-        assertThat(Flyway.configure().dataSource(upgradeUrl, "root", "").load().migrate().migrationsExecuted).isEqualTo(1);
+        assertThat(Flyway.configure().dataSource(upgradeUrl, "root", "").target("13").load().migrate().migrationsExecuted).isEqualTo(1);
         try (var connection = DriverManager.getConnection(upgradeUrl, "root", ""); var sql = connection.createStatement()) {
             try (var rows = sql.executeQuery("SELECT remaining_lessons,total_lessons,status FROM course_record WHERE id=807")) {
                 assertThat(rows.next()).isTrue();

@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import java.time.*;
 import org.springframework.context.event.EventListener;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import com.ethan.familyadmin.notification.CourseNotificationService;
 
 @Component
 @ConditionalOnProperty(prefix="family-admin.courses.auto-attendance",name="enabled",havingValue="true",matchIfMissing=true)
@@ -18,9 +19,10 @@ public class CourseAutoAttendanceJob {
     private final CourseAutoAttendanceStateMapper states;
     private final CourseAutoAttendanceService worker;
     private final Clock clock;
+    private final CourseNotificationService notifications;
     public CourseAutoAttendanceJob(CourseMapper courses, CourseAutoAttendanceStateMapper states,
-        CourseAutoAttendanceService worker, @Qualifier("courseAttendanceClock") Clock clock) {
-        this.courses=courses; this.states=states; this.worker=worker; this.clock=clock;
+        CourseAutoAttendanceService worker, @Qualifier("courseAttendanceClock") Clock clock, CourseNotificationService notifications) {
+        this.courses=courses; this.states=states; this.worker=worker; this.clock=clock; this.notifications=notifications;
     }
 
     /** 启用时间在启动完成时落库，不等到下一个半点，避免漏掉上线后到首次检查间结束的课。 */
@@ -49,7 +51,12 @@ public class CourseAutoAttendanceJob {
                 var end=date.atTime(course.getEndTime());
                 if (end.isBefore(from) || end.isAfter(through)) continue;
                 try {
-                    if (worker.complete(course.getId(),date,state.enabledFrom(),now)) completed++;
+                    if (worker.complete(course.getId(),date,state.enabledFrom(),now)) {
+                        completed++;
+                        // worker 返回时扣课事务已提交；通知故障由分钟补偿扫描恢复，不回滚扣课或阻塞检查点。
+                        try { notifications.afterAutomaticAttendance(course.getId(),date); }
+                        catch (RuntimeException error) { LOG.warn("自动扣课通知待补偿 course={} date={} errorType={}",course.getId(),date,error.getClass().getSimpleName()); }
+                    }
                 } catch (RuntimeException error) {
                     failed=true;
                     LOG.error("Automatic attendance failed for family={} course={} date={}",course.getFamilyId(),course.getId(),date,error);

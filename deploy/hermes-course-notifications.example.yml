@@ -1,0 +1,16 @@
+# 仅合并以下 webhook 配置，不覆盖现有 config.yaml 的其他配置。
+# /root/.hermes 使用 8644；/root/.hermes-weixin2 使用 8645，各自使用不同密钥。
+# 固定投递到各 profile 已配置的 WEIXIN_HOME_CHANNEL，不从请求正文读取收件人。
+platforms:
+  webhook:
+    enabled: true
+    extra:
+      host: 172.18.0.1
+      port: 8644
+      secret: ""
+      routes:
+        family-course:
+          events: [course.upcoming, course.attendance]
+          deliver: weixin
+          deliver_only: true
+          prompt: "{title}\n{content}"
