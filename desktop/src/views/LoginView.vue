@@ -64,7 +64,7 @@ async function handleSubmit(): Promise<void> {
         </el-form-item>
         <el-button class="login-button" type="primary" native-type="submit" :loading="isSubmitting">进入家庭管理</el-button>
       </el-form>
-      <p class="session-tip">为保护家庭数据，关闭应用后需要重新登录。</p>
+      <p class="session-tip">登录状态自动保留，访问时续期，连续 1 天未访问需重新登录。</p>
     </section>
   </main>
 </template>

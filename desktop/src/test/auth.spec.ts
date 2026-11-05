@@ -15,7 +15,7 @@ describe('auth store', () => {
     apiFamilies.mockReset()
   })
 
-  it('restores the access token after a page reload in the active application session', async () => {
+  it('restores login after closing the window and keeps renewed tokens persistently', async () => {
     apiLogin.mockResolvedValue({
       accessToken: 'session-token',
       user: { id: 1, familyId: 12, username: 'member', displayName: '家庭成员', role: 'FAMILY_MEMBER' },
@@ -26,12 +26,13 @@ describe('auth store', () => {
 
     expect(authStore.token).toBe('session-token')
     expect(authStore.user?.familyId).toBe(12)
-    expect(sessionStorage.length).toBe(1)
-    expect(localStorage.length).toBe(0)
+    expect(localStorage.length).toBe(1)
+    authStore.renewSession('renewed-token')
+    sessionStorage.clear()
 
     setActivePinia(createPinia())
     const restoredAuthStore = useAuthStore()
-    expect(restoredAuthStore.token).toBe('session-token')
+    expect(restoredAuthStore.token).toBe('renewed-token')
     expect(restoredAuthStore.user?.familyId).toBe(12)
     expect(apiFamilies).not.toHaveBeenCalled()
   })
@@ -95,5 +96,27 @@ describe('auth store', () => {
     expect(authStore.familiesData).toEqual([])
     expect(authStore.user).toBeNull()
     expect(sessionStorage.length).toBe(0)
+    expect(localStorage.length).toBe(0)
+  })
+
+  it('migrates the earlier window session and clears both stores on logout', () => {
+    sessionStorage.setItem('family-admin-auth-session', JSON.stringify({
+      token: 'earlier-token',
+      user: { id: 1, familyId: 12, username: 'member', displayName: '家庭成员', role: 'FAMILY_MEMBER' },
+    }))
+    const tempAuthStore = useAuthStore()
+    expect(tempAuthStore.token).toBe('earlier-token')
+    expect(sessionStorage.length).toBe(0)
+    expect(localStorage.length).toBe(1)
+    tempAuthStore.logout()
+    expect(localStorage.length).toBe(0)
+  })
+
+  it('does not restore a logged out session from a late renewal', () => {
+    const tempAuthStore = useAuthStore()
+    tempAuthStore.logout()
+    tempAuthStore.renewSession('late-token')
+    expect(tempAuthStore.token).toBe('')
+    expect(localStorage.length).toBe(0)
   })
 })

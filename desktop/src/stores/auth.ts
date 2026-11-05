@@ -13,14 +13,18 @@ interface AuthSession {
   families?: Family[]
 }
 
-/** 恢复当前应用窗口内的登录状态，损坏的数据会被清理并按未登录处理。 */
+/** 跨应用重启恢复登录；旧版窗口会话在升级后迁入，损坏数据按未登录处理。 */
 function readAuthSession(): AuthSession | null {
-  const tempSessionJson = sessionStorage.getItem(AUTH_SESSION_KEY)
+  const tempSessionJson = localStorage.getItem(AUTH_SESSION_KEY) ?? sessionStorage.getItem(AUTH_SESSION_KEY)
   if (!tempSessionJson) return null
   try {
-    return JSON.parse(tempSessionJson) as AuthSession
+    const tempSession = JSON.parse(tempSessionJson) as AuthSession
+    localStorage.setItem(AUTH_SESSION_KEY, tempSessionJson)
+    sessionStorage.removeItem(AUTH_SESSION_KEY)
+    return tempSession
   } catch {
     sessionStorage.removeItem(AUTH_SESSION_KEY)
+    localStorage.removeItem(AUTH_SESSION_KEY)
     return null
   }
 }
@@ -38,12 +42,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   function persistSession(): void {
     if (!token.value || !user.value) return
-    sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({
+    localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({
       token: token.value,
       user: user.value,
       selectedFamilyId: selectedFamilyId.value,
       families: familiesData.value,
     }))
+  }
+
+  /** 请求层已核对来源会话，保存续期结果；退出后的迟到响应不能恢复登录。 */
+  function renewSession(accessToken: string): void {
+    if (!token.value || !user.value) return
+    token.value = accessToken
+    setAccessToken(accessToken)
+    persistSession()
   }
 
   async function login(username: string, password: string): Promise<void> {
@@ -92,7 +104,8 @@ export const useAuthStore = defineStore('auth', () => {
     setAccessToken('')
     applySelectedFamilyId(null)
     sessionStorage.removeItem(AUTH_SESSION_KEY)
+    localStorage.removeItem(AUTH_SESSION_KEY)
   }
 
-  return { token, user, selectedFamilyId, familiesData, familiesLoaded, isSuperAdmin, login, selectFamily, updateFamilies, refreshFamilies, logout }
+  return { token, user, selectedFamilyId, familiesData, familiesLoaded, isSuperAdmin, login, renewSession, selectFamily, updateFamilies, refreshFamilies, logout }
 })

@@ -58,6 +58,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     List.of(new SimpleGrantedAuthority("ROLE_" + currentUser.role().name()))
                 );
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                // 在响应正文提交前返回新令牌；客户端保存后从本次访问起重新计算有效期。
+                response.setHeader("X-Access-Token", jwtService.renew(currentUser));
             }
             filterChain.doFilter(request, response);
         } finally {

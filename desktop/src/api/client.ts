@@ -6,6 +6,7 @@ import type { ApiEnvelope } from '@/types/api'
 let accessToken = ''
 let selectedFamilyId: number | null = null
 let authFailureHandler: (() => void) | null = null
+let tokenRenewalHandler: ((token: string) => void) | null = null
 
 export const http = axios.create({
   baseURL: getApiBaseUrl(),
@@ -25,6 +26,11 @@ export function setAuthFailureHandler(handler: () => void): void {
   authFailureHandler = handler
 }
 
+/** 将已确认属于当前会话的续期令牌交给登录状态保存。 */
+export function setTokenRenewalHandler(handler: (token: string) => void): void {
+  tokenRenewalHandler = handler
+}
+
 http.interceptors.request.use((config) => {
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`
   if (selectedFamilyId !== null) config.headers['X-Family-Id'] = String(selectedFamilyId)
@@ -32,12 +38,21 @@ http.interceptors.request.use((config) => {
 })
 
 http.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const tempToken = response.headers['x-access-token']
+    // 只接受当前令牌发出的请求，避免退出、切换账号或较新续期被旧响应覆盖。
+    if (typeof tempToken === 'string' && tempToken && accessToken
+      && response.config.headers.Authorization === `Bearer ${accessToken}`) {
+      accessToken = tempToken
+      tokenRenewalHandler?.(tempToken)
+    }
+    return response
+  },
   (error: unknown) => {
     if (axios.isAxiosError<ApiEnvelope<unknown>>(error)) {
       const tempStatus = error.response?.status
       if ((tempStatus === 401 || tempStatus === 403) && error.config?.headers?.Authorization) {
-        if (accessToken) authFailureHandler?.()
+        if (accessToken && error.config.headers.Authorization === `Bearer ${accessToken}`) authFailureHandler?.()
         return Promise.reject(error)
       }
       ElMessage.error(error.response?.data.message ?? '请求失败，请稍后重试')

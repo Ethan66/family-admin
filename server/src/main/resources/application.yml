@@ -21,7 +21,7 @@ server:
 family-admin:
   security:
     jwt-secret: ${JWT_SECRET:replace-this-development-secret-with-at-least-32-bytes}
-    access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:120}
+    access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:1440}
   storage:
     root: ${STORAGE_ROOT:../storage}
   bootstrap:

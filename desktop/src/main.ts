@@ -5,12 +5,14 @@ import 'element-plus/es/components/message/style/css'
 import 'element-plus/es/components/message-box/style/css'
 import { ElMessage } from 'element-plus'
 import App from './App.vue'
-import { setAuthFailureHandler } from './api/client'
+import { setAuthFailureHandler, setTokenRenewalHandler } from './api/client'
 import router from './router'
 import { pinia } from './stores'
 import { useAuthStore } from './stores/auth'
 import './styles.css'
 import './prototype.css'
+
+setTokenRenewalHandler((token) => useAuthStore(pinia).renewSession(token))
 
 setAuthFailureHandler(() => {
   const tempAuthStore = useAuthStore(pinia)
