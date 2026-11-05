@@ -24,6 +24,7 @@ class Backend:
         self.courses = [{"id": 31, "memberId": 7, "memberName": "小明", "title": "钢琴",
                          "dayOfWeek": 6, "date": "2026-10-24", "startTime": "10:00:00", "endTime": "11:00:00", "status": "PENDING"}]
         self.course_records = {"records": [], "total": 0}
+        self.course_balances = []
         self.passbooks = {"records": [{"id": 51, "memberId": 7, "memberName": "小明", "bank": "农商",
                           "depositDate": "2025-02-28", "amount": 100.25, "termYears": 1, "interestRate": 2.5,
                           "maturityDate": "2026-02-28", "totalInterest": 2.51, "totalAmount": 102.76, "note": "备注"}],
@@ -53,6 +54,8 @@ class Backend:
             return self.ok([c for c in self.courses if member is None or str(c["memberId"]) == member])
         if request.method == "GET" and path == "/api/courses/records":
             return self.ok(self.course_records)
+        if request.method == "GET" and path == "/api/courses/balances":
+            return self.ok(self.course_balances)
         if request.method == "GET" and path == "/api/passbooks":
             if self.passbook_error:
                 return httpx.Response(self.passbook_error)
@@ -417,6 +420,42 @@ async def test_explicit_course_member_overrides_course_default(setup):
     service.client.settings = replace(settings, course_default_member_id=8)
     assert (await service.list_courses(member_id=7))["member_id"] == 7
     assert (await service.list_course_records(member_id=7))["member_id"] == 7
+
+
+async def test_course_balances_use_course_default_and_include_standalone_and_unknown_balances(setup):
+    service, backend, settings = setup
+    from dataclasses import replace
+    service.client.settings = replace(settings, default_member_id=7, course_default_member_id=8)
+    backend.course_balances = [
+        {"courseId": 31, "title": "英语", "remainingLessons": 8, "totalLessons": 12},
+        {"courseId": None, "title": "篮球", "remainingLessons": 19, "totalLessons": 19},
+        {"courseId": 32, "title": "画画", "remainingLessons": None, "totalLessons": None},
+    ]
+    result = await service.list_course_balances()
+    assert result == {"member_id": 8, "balances": backend.course_balances}
+    request = next(r for r in backend.calls if r.url.path == "/api/courses/balances")
+    assert dict(request.url.params) == {"memberId": "8"}
+    assert not any(r.url.path in {"/api/courses", "/api/courses/records"} for r in backend.calls)
+    assert backend.writes == []
+
+
+async def test_course_balances_explicit_member_and_empty_result(setup):
+    service, backend, settings = setup
+    from dataclasses import replace
+    service.client.settings = replace(settings, course_default_member_id=8)
+    assert await service.list_course_balances(member_id=7) == {"member_id": 7, "balances": []}
+    request = next(r for r in backend.calls if r.url.path == "/api/courses/balances")
+    assert request.url.params["memberId"] == "7"
+    assert backend.writes == []
+
+
+@pytest.mark.parametrize("member_id", [999, 0, True])
+async def test_course_balances_reject_invalid_or_other_family_member(setup, member_id):
+    service, backend, _ = setup
+    with pytest.raises(ValueError):
+        await service.list_course_balances(member_id=member_id)
+    assert not any(r.url.path == "/api/courses/balances" for r in backend.calls)
+    assert backend.writes == []
 
 
 @pytest.mark.parametrize("status", ["ATTENDED", "LEAVE"])

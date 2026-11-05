@@ -9,13 +9,15 @@
     "server/src/main/java/com/ethan/familyadmin/course/CourseAutoAttendanceService.java",
     "server/src/main/java/com/ethan/familyadmin/notification/CourseBalanceLine.java",
     "server/src/main/java/com/ethan/familyadmin/notification/CourseNotificationMapper.java",
-    "server/src/main/java/com/ethan/familyadmin/notification/CourseNotificationService.java"
+    "server/src/main/java/com/ethan/familyadmin/notification/CourseNotificationService.java",
+    "mcp-server/src/family_admin_mcp/course_queries.py"
   ],
   "financeExcludeReasons": {
     "server/src/main/java/com/ethan/familyadmin/course/CourseService.java": "course_balance 仅保存教学课时计数，非资金余额；不涉及支付、退款、账务流水或可兑现权益。通用安全和注释检查照常执行。",
     "server/src/main/java/com/ethan/familyadmin/course/CourseAutoAttendanceService.java": "自动记课仅扣减教学课次并保存快照，不调用资金入口；本次保持原有扣课规则，已验证并发、幂等及事务回滚。",
     "server/src/main/java/com/ethan/familyadmin/notification/CourseBalanceLine.java": "仅承载教学课时剩余和总数的通知数据，不含金额、可兑现权益或任何持久化写入。",
     "server/src/main/java/com/ethan/familyadmin/notification/CourseNotificationMapper.java": "仅读取教学课表、课时计数和收件权限，写入范围仅限 course_notification 通知状态；不更新课时余额或任何资金表。",
-    "server/src/main/java/com/ethan/familyadmin/notification/CourseNotificationService.java": "仅读取已提交的自动上课记录与全科课时计数，生成文字并通过 Mapper 写入通知任务；不扣课、不涉及资金操作。"
+    "server/src/main/java/com/ethan/familyadmin/notification/CourseNotificationService.java": "仅读取已提交的自动上课记录与全科课时计数，生成文字并通过 Mapper 写入通知任务；不扣课、不涉及资金操作。",
+    "mcp-server/src/family_admin_mcp/course_queries.py": "仅通过 GET /courses/balances 读取教学课时计数并注册只读工具；不扣课、不读写资金或可兑现权益。收支工具所在 server.py 和 service.py 保留资金检查。"
   }
 }

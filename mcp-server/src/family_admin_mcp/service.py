@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from .client import ApiError
+from .course_queries import CourseQueriesMixin
 from .quick_notes import QuickNotesMixin
 
 
@@ -29,7 +30,7 @@ def date_range(start, end, max_days):
     return start, end
 
 
-class FamilyService(QuickNotesMixin):
+class FamilyService(QuickNotesMixin, CourseQueriesMixin):
     def __init__(self, client, journal, today=None):
         self.client, self.journal = client, journal
         self.today = today or (lambda: datetime.now(ZoneInfo("Asia/Shanghai")).date())

@@ -15,6 +15,7 @@
 | `delete_daily_task` | 删除明确选定的整个任务；重复任务删除前须说明影响并确认 |
 | `delete_expense` | 核对日期、记录ID和支出类型后删除一笔支出；不用于收入 |
 | `list_courses` | 查询成员本周课表，默认服务端成员；用于定位课程ID、星期和时间 |
+| `list_course_balances` | 查询成员全部科目的当前剩余／总课时，默认课程专用成员，包含没有固定课表的科目 |
 | `record_course_attendance` | 记录某天已上课（ATTENDED）或已请假（LEAVE） |
 | `list_course_records` | 分页查询课程记录，可按成员、课程名、状态和月份筛选 |
 | `list_passbooks` | 只读查询当前家庭存折，支持成员、存款日期、分页与排序，返回全量合计 |
@@ -41,7 +42,9 @@
 
 先查 `list_courses` 获取本周课程安排；返回的 `status` 仅代表本周对应课次，补记过去日期时不能套用本周状态，应另查课程记录。`record_course_attendance` 使用查到的课程ID及明确日期，校验当前家庭课程存在、星期匹配、日期不晚于北京时间今天、备注不超过500字。现有后端不支持未来请假，例如“明天钢琴请假”应回复尚不能提前记录，不能偷改为今天。
 
-同一课程与日期会更新已有状态和备注，不另增第二条课次；用户更改已有状态时须说明并确认。后端事务负责课时：已配置该成员/科目余额时，首次上课扣1、请假不扣、上课改请假返还1；MCP不另行扣减，不自行设置余额。保存接口无剩余课时回执，不能编造具体余额；历史查询里附带的余额是当前值，不是历史当日快照。
+同一课程与日期会更新已有状态和备注，不另增第二条课次；用户更改已有状态时须说明并确认。后端事务负责课时：已配置该成员/科目余额时，首次上课扣1、请假不扣、上课改请假返还1；MCP不另行扣减，不自行设置余额。保存接口无剩余课时回执，不能编造具体余额；历史查询里附带的是该次处理后的余额快照，旧记录可能为空，不用于推算当前余额。
+
+查询“还剩几节课”时调用 `list_course_balances`，默认使用 `course_default_member_id`，也可显式指定当前家庭成员。工具请求现有 `/api/courses/balances` 接口，返回 `member_id` 和完整的 `balances`，包含篮球等没有固定课表的科目；课时为空表示未设置，不能当作零。查询当前余额不依赖课表或上课历史，也不修改课时。
 
 历史记录每页20条，工具返回 `page`、`page_size`、`total` 和 `has_more`；有后续页时不能把一页当全部记录或据此统计全部上课次数。课程名称过滤为完整名称，月份 `YYYY-MM`，状态只支持 `ATTENDED`、`LEAVE`。本版不支持MCP新增/删除课程定义、编辑课时余额或未来请假。
 
@@ -118,7 +121,7 @@ chmod 600 .env
 1. 备份 Hermes 实际运行账号的 `~/.hermes/config.yaml`。
 2. 将 `hermes-config.example.yaml` 的 `family-admin` 条目合并到现有 `mcp_servers`，并在 `platform_toolsets.weixin` 保留 `hermes-weixin`、加入 `mcp-family-admin`，不要覆盖其他平台或微信连接设置。凭证放在 MCP 的 `.env`，不要放进工具参数。
 3. 保证 Hermes 运行账号可执行上述 Python，并能读取 `.env` 和读写持久化 `state` 目录。
-4. 在该账号和同一 Hermes profile 下执行 `hermes mcp test family-admin`，检查16个工具的发现结果。具体命令以服务器 `hermes mcp --help` 为准。
+4. 在该账号和同一 Hermes profile 下执行 `hermes mcp test family-admin`，核对工具发现结果包含 `list_course_balances`。具体命令以服务器 `hermes mcp --help` 为准。
 5. 按当前 Hermes 服务的管理方式重启网关或重新加载 MCP，确保处理微信消息的进程实际加载配置。只启动新的终端会话不代表原微信网关已更新。
 6. 先通过授权私聊调用 `get_family_context`，核对账号和家庭，再做一次明确标记的测试记账/任务并在桌面端核对。清理生产测试数据必须有用户明确授权；不对真实账目或任务做自动删除测试。
 

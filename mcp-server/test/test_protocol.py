@@ -32,12 +32,14 @@ async def test_stdio_discovery_and_tool_errors_are_valid_mcp(tmp_path):
             tools = {tool.name: tool for tool in (await session.list_tools()).tools}
             assert set(tools) == {"get_family_context", "add_transaction", "list_transactions",
                                  "create_daily_task", "list_daily_tasks", "complete_daily_task", "delete_daily_task", "delete_expense",
-                                 "list_courses", "record_course_attendance", "list_course_records", "list_passbooks",
+                                 "list_courses", "list_course_balances", "record_course_attendance", "list_course_records", "list_passbooks",
                                  "list_quick_notes", "create_quick_note", "update_quick_note", "delete_quick_note"}
             assert tools["get_family_context"].annotations.readOnlyHint is True
             assert tools["delete_daily_task"].annotations.destructiveHint is True
             assert tools["delete_expense"].annotations.destructiveHint is True
             assert tools["list_courses"].annotations.readOnlyHint is True
+            assert tools["list_course_balances"].annotations.readOnlyHint is True
+            assert tools["list_course_balances"].annotations.destructiveHint is False
             assert tools["list_passbooks"].annotations.readOnlyHint is True
             assert tools["list_passbooks"].annotations.destructiveHint is False
             assert tools["list_quick_notes"].annotations.readOnlyHint is True
@@ -149,6 +151,10 @@ async def test_stdio_course_attendance_and_leave_update_same_record(tmp_path):
                 self.respond([{"userId": 7, "displayName": "测试成员"}])
             elif self.path.startswith("/api/courses/records?"):
                 self.respond({"records": list(saved.values()), "total": len(saved)})
+            elif self.path.startswith("/api/courses/balances?"):
+                assert self.path == "/api/courses/balances?memberId=7"
+                self.respond([{"courseId": None, "title": "篮球", "remainingLessons": 19, "totalLessons": 19},
+                              {"courseId": 31, "title": "钢琴", "remainingLessons": None, "totalLessons": None}])
             else:
                 assert self.path == "/api/courses" or self.path.startswith("/api/courses?")
                 self.respond([course])
@@ -178,6 +184,14 @@ async def test_stdio_course_attendance_and_leave_update_same_record(tmp_path):
             courses = await session.call_tool("list_courses", {})
             assert not courses.isError
             assert json.loads(courses.content[0].text)["courses"][0]["id"] == 31
+            balances = await session.call_tool("list_course_balances", {})
+            assert not balances.isError
+            balance_result = json.loads(balances.content[0].text)
+            assert balance_result["member_id"] == 7
+            assert balance_result["balances"][0]["title"] == "篮球"
+            assert balance_result["balances"][0]["remainingLessons"] == 19
+            assert balance_result["balances"][1]["remainingLessons"] is None
+            assert writes == []
             args = {"request_id": "wx:course:0", "course_id": 31, "course_date": today.isoformat(), "status": "ATTENDED"}
             attended = await session.call_tool("record_course_attendance", args)
             assert not attended.isError and json.loads(attended.content[0].text)["record"]["status"] == "ATTENDED"
